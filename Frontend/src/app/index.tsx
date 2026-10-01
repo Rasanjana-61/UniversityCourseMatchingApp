@@ -12,6 +12,12 @@ import { ResultsEntryScreen } from '@/screens/ResultsEntryScreen';
 import { MatchingResultsScreen } from '@/screens/MatchingResultsScreen';
 import { ExploreScreen } from '@/screens/ExploreScreen';
 import { SavedCoursesScreen } from '@/screens/SavedCoursesScreen';
+import { CourseDetailsScreen } from '@/screens/CourseDetailsScreen';
+import { UniversityDetailsScreen } from '@/screens/UniversityDetailsScreen';
+import { AssessmentIntroScreen } from '@/screens/AssessmentIntroScreen';
+import { AssessmentQuestionsScreen } from '@/screens/AssessmentQuestionsScreen';
+import { AssessmentProfileScreen } from '@/screens/AssessmentProfileScreen';
+import { AssessmentRecommendationsScreen } from '@/screens/AssessmentRecommendationsScreen';
 
 export default function AppEntry() {
   const { currentScreen } = useApp();
@@ -40,6 +46,18 @@ export default function AppEntry() {
         return <ExploreScreen />;
       case 'saved':
         return <SavedCoursesScreen />;
+      case 'course-details':
+        return <CourseDetailsScreen />;
+      case 'university-details':
+        return <UniversityDetailsScreen />;
+      case 'assessment-intro':
+        return <AssessmentIntroScreen />;
+      case 'assessment-questions':
+        return <AssessmentQuestionsScreen />;
+      case 'assessment-profile':
+        return <AssessmentProfileScreen />;
+      case 'assessment-recommendations':
+        return <AssessmentRecommendationsScreen />;
       default:
         return <HomeScreen />;
     }
