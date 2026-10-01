@@ -188,4 +188,30 @@ router.get("/:email/saved-courses", async (req, res) => {
   }
 });
 
+// DELETE /:email - Delete student account
+router.delete("/:email", async (req, res) => {
+  try {
+    const { email } = req.params;
+    
+    // First check if user exists
+    const [existing] = await sql`
+      SELECT id FROM student_profiles WHERE LOWER(email) = LOWER(${email});
+    `;
+
+    if (!existing) {
+      return res.status(404).json({ success: false, message: "Student profile not found" });
+    }
+
+    // Delete from student_profiles
+    await sql`
+      DELETE FROM student_profiles WHERE LOWER(email) = LOWER(${email});
+    `;
+
+    res.status(200).json({ success: true, message: "Account deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting student profile:", error);
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+});
+
 export default router;

@@ -29,7 +29,13 @@ export type ScreenType =
   | "results-entry"
   | "matching-results"
   | "explore"
-  | "saved";
+  | "saved"
+  | "course-details"
+  | "university-details"
+  | "assessment-intro"
+  | "assessment-questions"
+  | "assessment-profile"
+  | "assessment-recommendations";
 
 export type TabType = "home" | "search" | "assess" | "saved" | "profile";
 
@@ -57,6 +63,12 @@ interface AppContextType {
     extra?: Partial<StudentData>
   ) => Promise<{ success: boolean; message: string }>;
   logout: () => Promise<void>;
+  selectedCourseId: number | null;
+  setSelectedCourseId: (id: number | null) => void;
+  selectedUniversityId: number | null;
+  setSelectedUniversityId: (id: number | null) => void;
+  assessmentScores: any;
+  setAssessmentScores: (scores: any) => void;
 }
 
 const defaultStudent: StudentData = {
@@ -83,6 +95,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [token, setToken] = useState<string | null>(null);
   const [matchResults, setMatchResults] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null);
+  const [selectedUniversityId, setSelectedUniversityId] = useState<number | null>(null);
+  const [assessmentScores, setAssessmentScores] = useState<any>(null);
 
   // Load saved session on app launch
   useEffect(() => {
@@ -275,6 +290,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         login,
         register,
         logout,
+        selectedCourseId,
+        setSelectedCourseId,
+        selectedUniversityId,
+        setSelectedUniversityId,
+        assessmentScores,
+        setAssessmentScores,
       }}
     >
       {children}

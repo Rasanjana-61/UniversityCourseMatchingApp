@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
   Modal,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -41,6 +42,35 @@ export const ProfileScreen: React.FC = () => {
     } catch (e) {
       console.log("Could not sync profile update to backend:", e);
     }
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete Account",
+      "Are you sure you want to permanently delete your account? This action cannot be undone.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const res = await api.deleteAccount(student.email);
+              if (res && res.success) {
+                logout(); // Clears local session and navigates to welcome screen
+              } else {
+                Alert.alert("Error", res.message || "Failed to delete account");
+              }
+            } catch (error) {
+              Alert.alert("Error", "An unexpected error occurred.");
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -171,8 +201,18 @@ export const ProfileScreen: React.FC = () => {
           onPress={logout}
           activeOpacity={0.85}
         >
-          <Ionicons name="log-out-outline" size={18} color="#EF4444" style={{ marginRight: 6 }} />
+          <Ionicons name="log-out-outline" size={18} color={Brand.textSecondary} style={{ marginRight: 6 }} />
           <Text style={styles.logoutButtonText}>Log Out</Text>
+        </TouchableOpacity>
+
+        {/* Delete Account Button */}
+        <TouchableOpacity
+          style={styles.deleteAccountButton}
+          onPress={handleDeleteAccount}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="trash-outline" size={18} color="#EF4444" style={{ marginRight: 6 }} />
+          <Text style={styles.deleteAccountButtonText}>Delete Account</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -352,6 +392,22 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     flexDirection: "row",
+    backgroundColor: "#F1F5F9",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    height: 48,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  logoutButtonText: {
+    color: Brand.textSecondary,
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  deleteAccountButton: {
+    flexDirection: "row",
     backgroundColor: "#FEF2F2",
     borderWidth: 1,
     borderColor: "#FEE2E2",
@@ -361,7 +417,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 20,
   },
-  logoutButtonText: {
+  deleteAccountButtonText: {
     color: "#EF4444",
     fontSize: 15,
     fontWeight: "600",

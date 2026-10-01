@@ -239,4 +239,15 @@ export const api = {
       return { success: false, message: "Error fetching saved courses" };
     }
   },
+
+  deleteAccount: async (email: string) => {
+    try {
+      const res = await fetch(`${getApiUrl()}/students/${encodeURIComponent(email)}`, {
+        method: "DELETE",
+      });
+      return await res.json();
+    } catch (error: any) {
+      return { success: false, message: "Error deleting account" };
+    }
+  },
 };
