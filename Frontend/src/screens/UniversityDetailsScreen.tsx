@@ -203,6 +203,35 @@ export const UniversityDetailsScreen: React.FC = () => {
           </View>
         </View>
 
+        {/* Action Buttons: Admission & Compare */}
+        <View style={styles.bottomActions}>
+          <TouchableOpacity
+            style={styles.admissionBtn}
+            onPress={() => setCurrentScreen("scholarships")}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.admissionBtnText}>View Scholarships & Financial Aid</Text>
+          </TouchableOpacity>
+
+          <View style={styles.twoBtnRow}>
+            <TouchableOpacity
+              style={styles.halfBtnOutline}
+              onPress={() => setCurrentScreen("saved")}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.halfBtnText}>Saved</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.halfBtnOutline}
+              onPress={() => setCurrentScreen("compare-courses")}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.halfBtnText}>Compare</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
       </ScrollView>
     </SafeAreaView>
   );
@@ -412,5 +441,46 @@ const styles = StyleSheet.create({
     backgroundColor: "#F8FAFC",
     borderRadius: 8,
     marginLeft: 10,
+  },
+  bottomActions: {
+    paddingHorizontal: 20,
+    marginTop: 10,
+    gap: 12,
+  },
+  admissionBtn: {
+    backgroundColor: Brand.primary,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: Brand.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  admissionBtnText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  twoBtnRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  halfBtnOutline: {
+    flex: 1,
+    height: 44,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: Brand.cardBorder,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  halfBtnText: {
+    color: Brand.text,
+    fontSize: 14,
+    fontWeight: "600",
   },
 });
