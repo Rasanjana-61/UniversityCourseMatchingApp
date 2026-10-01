@@ -15,7 +15,7 @@ import { useApp } from "../context/AppContext";
 import { BottomNavBar } from "../components/BottomNavBar";
 
 export const ProfileScreen: React.FC = () => {
-  const { student, updateStudent, setCurrentScreen, setActiveTab } = useApp();
+  const { student, updateStudent, setCurrentScreen, setActiveTab, logout } = useApp();
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(student.fullName);
   const [school, setSchool] = useState(student.school);
@@ -63,16 +63,20 @@ export const ProfileScreen: React.FC = () => {
           </View>
 
           <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Email:</Text>
+            <Text style={styles.infoValue}>{student.email}</Text>
+          </View>
+          <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Student:</Text>
             <Text style={styles.infoValue}>{student.fullName}</Text>
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>School:</Text>
-            <Text style={styles.infoValue}>{student.school}</Text>
+            <Text style={styles.infoValue}>{student.school || "Not set"}</Text>
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Location:</Text>
-            <Text style={styles.infoValue}>{student.location}</Text>
+            <Text style={styles.infoValue}>{student.location || student.district || "Colombo"}</Text>
           </View>
         </View>
 
@@ -96,13 +100,15 @@ export const ProfileScreen: React.FC = () => {
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Subjects:</Text>
             <Text style={styles.infoValue}>
-              {student.subjects.map((s) => `${s.name} (${s.grade})`).join(", ")}
+              {student.subjects && student.subjects.length > 0
+                ? student.subjects.map((s) => `${s.name} (${s.grade})`).join(", ")
+                : "No subjects added yet"}
             </Text>
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Z-Score:</Text>
             <Text style={[styles.infoValue, { color: Brand.primary, fontWeight: "700" }]}>
-              {student.zScore.toFixed(4)}
+              {student.zScore ? student.zScore.toFixed(4) : "0.0000"}
             </Text>
           </View>
           <View style={styles.infoRow}>
@@ -122,11 +128,19 @@ export const ProfileScreen: React.FC = () => {
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Interests:</Text>
-            <Text style={styles.infoValue}>{student.interests.join(", ")}</Text>
+            <Text style={styles.infoValue}>
+              {student.interests && student.interests.length > 0
+                ? student.interests.join(", ")
+                : "Technology, Engineering"}
+            </Text>
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Skills:</Text>
-            <Text style={styles.infoValue}>{student.skills.join(" + ")}</Text>
+            <Text style={styles.infoValue}>
+              {student.skills && student.skills.length > 0
+                ? student.skills.join(" + ")
+                : "Problem solving, Teamwork"}
+            </Text>
           </View>
         </View>
 
@@ -136,7 +150,18 @@ export const ProfileScreen: React.FC = () => {
           onPress={() => setIsEditing(true)}
           activeOpacity={0.85}
         >
+          <Ionicons name="create-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
           <Text style={styles.editButtonText}>Edit Profile</Text>
+        </TouchableOpacity>
+
+        {/* Log Out Button */}
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={logout}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="log-out-outline" size={18} color="#EF4444" style={{ marginRight: 6 }} />
+          <Text style={styles.logoutButtonText}>Log Out</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -295,13 +320,14 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   editButton: {
+    flexDirection: "row",
     backgroundColor: Brand.primary,
     height: 50,
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
     marginTop: 8,
-    marginBottom: 16,
+    marginBottom: 10,
     shadowColor: Brand.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
@@ -310,6 +336,22 @@ const styles = StyleSheet.create({
   },
   editButtonText: {
     color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  logoutButton: {
+    flexDirection: "row",
+    backgroundColor: "#FEF2F2",
+    borderWidth: 1,
+    borderColor: "#FEE2E2",
+    height: 48,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  logoutButtonText: {
+    color: "#EF4444",
     fontSize: 15,
     fontWeight: "600",
   },
