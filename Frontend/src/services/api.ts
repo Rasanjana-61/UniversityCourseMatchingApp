@@ -191,6 +191,24 @@ export const api = {
     }
   },
 
+  updateProfile: async (email: string, updates: {
+    fullName?: string;
+    school?: string;
+    district?: string;
+    interests?: string[];
+  }) => {
+    try {
+      const res = await fetch(`${getApiUrl()}/students/${encodeURIComponent(email)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      return await res.json();
+    } catch (error: any) {
+      return { success: false, message: "Error updating profile" };
+    }
+  },
+
   getProfile: async (email: string) => {
     try {
       const res = await fetch(`${getApiUrl()}/students/${encodeURIComponent(email)}`);
