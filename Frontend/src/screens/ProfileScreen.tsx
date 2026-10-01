@@ -3,16 +3,17 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   TextInput,
   Modal,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Brand } from "../constants/theme";
 import { useApp } from "../context/AppContext";
 import { BottomNavBar } from "../components/BottomNavBar";
+import { api } from "../services/api";
 
 export const ProfileScreen: React.FC = () => {
   const { student, updateStudent, setCurrentScreen, setActiveTab, logout } = useApp();
@@ -22,18 +23,28 @@ export const ProfileScreen: React.FC = () => {
   const [location, setLocation] = useState(student.location);
   const [district, setDistrict] = useState(student.district);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     updateStudent({
       fullName: name,
       school,
-      location,
+      location: district,
       district,
     });
     setIsEditing(false);
+    // Sync to backend
+    try {
+      await api.updateProfile(student.email, {
+        fullName: name,
+        school,
+        district,
+      });
+    } catch (e) {
+      console.log("Could not sync profile update to backend:", e);
+    }
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Top Header */}
         <View style={styles.header}>
