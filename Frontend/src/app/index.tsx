@@ -18,6 +18,13 @@ import { AssessmentIntroScreen } from '@/screens/AssessmentIntroScreen';
 import { AssessmentQuestionsScreen } from '@/screens/AssessmentQuestionsScreen';
 import { AssessmentProfileScreen } from '@/screens/AssessmentProfileScreen';
 import { AssessmentRecommendationsScreen } from '@/screens/AssessmentRecommendationsScreen';
+import { CareerDetailsScreen } from '@/screens/CareerDetailsScreen';
+import { JobOpportunitiesScreen } from '@/screens/JobOpportunitiesScreen';
+import { SalaryInfoScreen } from '@/screens/SalaryInfoScreen';
+import { CompareCoursesScreen } from '@/screens/CompareCoursesScreen';
+import { CourseComparisonScreen } from '@/screens/CourseComparisonScreen';
+import { ScholarshipsScreen } from '@/screens/ScholarshipsScreen';
+import { ScholarshipDetailsScreen } from '@/screens/ScholarshipDetailsScreen';
 
 export default function AppEntry() {
   const { currentScreen } = useApp();
@@ -58,6 +65,20 @@ export default function AppEntry() {
         return <AssessmentProfileScreen />;
       case 'assessment-recommendations':
         return <AssessmentRecommendationsScreen />;
+      case 'career-details':
+        return <CareerDetailsScreen />;
+      case 'job-opportunities':
+        return <JobOpportunitiesScreen />;
+      case 'salary-info':
+        return <SalaryInfoScreen />;
+      case 'compare-courses':
+        return <CompareCoursesScreen />;
+      case 'course-comparison':
+        return <CourseComparisonScreen />;
+      case 'scholarships':
+        return <ScholarshipsScreen />;
+      case 'scholarship-details':
+        return <ScholarshipDetailsScreen />;
       default:
         return <HomeScreen />;
     }
