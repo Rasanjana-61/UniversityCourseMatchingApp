@@ -47,14 +47,38 @@ export async function initDB() {
         id SERIAL PRIMARY KEY,
         full_name VARCHAR(255) NOT NULL,
         email VARCHAR(255) UNIQUE NOT NULL,
-        stream VARCHAR(100) NOT NULL,
-        z_score DECIMAL(5, 4) NOT NULL,
-        district VARCHAR(100) NOT NULL,
+        password VARCHAR(255),
+        school VARCHAR(255) DEFAULT '',
+        stream VARCHAR(100) DEFAULT 'Physical Science',
+        al_year VARCHAR(50) DEFAULT '2025',
+        subjects JSONB DEFAULT '[]'::jsonb,
+        z_score DECIMAL(5, 4) DEFAULT 0.0000,
+        district VARCHAR(100) DEFAULT 'Colombo',
         interests TEXT[] DEFAULT ARRAY[]::TEXT[],
         preferred_locations TEXT[] DEFAULT ARRAY[]::TEXT[],
         saved_course_ids INT[] DEFAULT ARRAY[]::INT[],
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+
+    // Ensure columns exist if table was already created earlier
+    await sql`ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS password VARCHAR(255);`;
+    await sql`ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS school VARCHAR(255) DEFAULT '';`;
+    await sql`ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS al_year VARCHAR(50) DEFAULT '2025';`;
+    await sql`ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS subjects JSONB DEFAULT '[]'::jsonb;`;
+    await sql`ALTER TABLE student_profiles ALTER COLUMN stream DROP NOT NULL;`;
+    await sql`ALTER TABLE student_profiles ALTER COLUMN z_score DROP NOT NULL;`;
+    await sql`ALTER TABLE student_profiles ALTER COLUMN district DROP NOT NULL;`;
+
+    // 4. Password Resets Table
+    await sql`
+      CREATE TABLE IF NOT EXISTS password_resets (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255) NOT NULL,
+        otp_code VARCHAR(10) NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL DEFAULT (CURRENT_TIMESTAMP + INTERVAL '15 minutes'),
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
       );
     `;
 
