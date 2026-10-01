@@ -60,22 +60,18 @@ interface AppContextType {
 }
 
 const defaultStudent: StudentData = {
-  fullName: "Nethmi Perera",
-  email: "nethmi@example.com",
-  school: "Royal Central College",
+  fullName: "",
+  email: "",
+  school: "",
   location: "Colombo",
   stream: "Physical Science",
   year: "2025",
-  subjects: [
-    { name: "Physics", grade: "A" },
-    { name: "Chemistry", grade: "B" },
-    { name: "Combined Maths", grade: "A" },
-  ],
+  subjects: [],
   district: "Colombo",
-  zScore: 1.8245,
-  interests: ["Technology", "Software", "AI"],
-  skills: ["Problem solving", "Teamwork", "Mathematics"],
-  savedCourseIds: [2],
+  zScore: 0,
+  interests: [],
+  skills: [],
+  savedCourseIds: [],
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -97,6 +93,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (savedToken && savedUser) {
           setToken(savedToken);
           setStudent(JSON.parse(savedUser));
+          setCurrentScreen("home");
         }
       } catch (err) {
         console.log("Error restoring auth session:", err);
@@ -206,6 +203,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const logout = async () => {
     setToken(null);
     setMatchResults(null);
+    setStudent(defaultStudent);
     await AsyncStorage.removeItem("user_token");
     await AsyncStorage.removeItem("user_profile");
     setCurrentScreen("welcome");
