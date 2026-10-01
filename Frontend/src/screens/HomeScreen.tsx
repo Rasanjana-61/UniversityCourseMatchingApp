@@ -96,7 +96,7 @@ export const HomeScreen: React.FC = () => {
           {/* Secondary Outline 1 */}
           <TouchableOpacity
             style={styles.outlineActionButton}
-            onPress={() => setCurrentScreen("stream-select")}
+            onPress={() => setCurrentScreen("assessment-intro")}
             activeOpacity={0.85}
           >
             <Text style={styles.outlineActionText}>Start assessment</Text>

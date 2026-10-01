@@ -52,7 +52,7 @@ const STREAM_DEFAULT_SUBJECTS: Record<string, string[]> = {
   Technology: ["Engineering Technology", "Science for Tech (SFT)", "ICT"],
 };
 
-const GRADES = ["A", "B", "C", "S", "F"];
+const GRADES = ["A", "B", "C", "S"];
 
 export const ResultsEntryScreen: React.FC = () => {
   const { student, updateStudent, setCurrentScreen, executeMatch, isLoading } = useApp();

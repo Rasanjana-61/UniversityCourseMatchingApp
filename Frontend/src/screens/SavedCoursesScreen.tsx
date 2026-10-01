@@ -15,7 +15,7 @@ import { api } from "../services/api";
 import { BottomNavBar } from "../components/BottomNavBar";
 
 export const SavedCoursesScreen: React.FC = () => {
-  const { student, toggleSave, setCurrentScreen, setActiveTab } = useApp();
+  const { student, toggleSave, setCurrentScreen, setActiveTab, setSelectedCourseId } = useApp();
   const [courses, setCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -33,12 +33,22 @@ export const SavedCoursesScreen: React.FC = () => {
     }
   };
 
+  // Load only once on screen mount
   useEffect(() => {
     loadSavedCourses();
-  }, [student.savedCourseIds]);
+  }, []);
 
   const handleRemove = async (courseId: number) => {
-    await toggleSave(courseId);
+    // 1. Instantly remove from UI (no flicker / race condition)
+    setCourses((prev) => prev.filter((c) => c.id !== courseId));
+    // 2. Sync to backend + context in background
+    try {
+      await toggleSave(courseId);
+    } catch (e) {
+      console.error("Delete sync failed:", e);
+      // Reload from server if sync fails
+      loadSavedCourses();
+    }
   };
 
   return (
@@ -74,7 +84,15 @@ export const SavedCoursesScreen: React.FC = () => {
         ) : (
           <View style={styles.listContainer}>
             {courses.map((course) => (
-              <View key={course.id} style={styles.card}>
+              <TouchableOpacity
+                key={course.id}
+                style={styles.card}
+                onPress={() => {
+                  setSelectedCourseId(course.id);
+                  setCurrentScreen("course-details");
+                }}
+                activeOpacity={0.8}
+              >
                 <View style={styles.cardHeader}>
                   <View style={styles.univBadge}>
                     <Text style={styles.univBadgeText}>
@@ -88,8 +106,11 @@ export const SavedCoursesScreen: React.FC = () => {
                   <TouchableOpacity
                     onPress={() => handleRemove(course.id)}
                     style={styles.removeBtn}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    <Ionicons name="bookmark" size={20} color={Brand.primary} />
+                    <View style={styles.deleteIconWrap}>
+                      <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                    </View>
                   </TouchableOpacity>
                 </View>
 
@@ -102,7 +123,7 @@ export const SavedCoursesScreen: React.FC = () => {
                   <Text style={styles.streamBadge}>{course.stream}</Text>
                   <Text style={styles.minZBadge}>Min Z: {course.min_z_score}</Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         )}
@@ -211,7 +232,17 @@ const styles = StyleSheet.create({
     color: Brand.textMuted,
   },
   removeBtn: {
-    padding: 4,
+    padding: 2,
+  },
+  deleteIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "#FEF2F2",
+    borderWidth: 1,
+    borderColor: "#FEE2E2",
+    justifyContent: "center",
+    alignItems: "center",
   },
   courseName: {
     fontSize: 15,

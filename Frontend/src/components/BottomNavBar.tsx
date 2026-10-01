@@ -11,7 +11,7 @@ export const BottomNavBar: React.FC = () => {
     setActiveTab(tab);
     if (tab === "home") setCurrentScreen("home");
     else if (tab === "profile") setCurrentScreen("profile");
-    else if (tab === "assess") setCurrentScreen("stream-select");
+    else if (tab === "assess") setCurrentScreen("assessment-intro");
     else if (tab === "search") setCurrentScreen("explore");
     else if (tab === "saved") setCurrentScreen("saved");
   };
