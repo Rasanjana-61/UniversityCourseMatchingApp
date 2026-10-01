@@ -22,33 +22,73 @@ router.get("/:email", async (req, res) => {
   }
 });
 
+// PUT /:email - Update basic profile info (name, school, district, etc.)
+router.put("/:email", async (req, res) => {
+  try {
+    const { email } = req.params;
+    const { fullName, school, district, location, interests, skills } = req.body;
+
+    const [existing] = await sql`
+      SELECT id FROM student_profiles WHERE LOWER(email) = LOWER(${email});
+    `;
+
+    if (!existing) {
+      return res.status(404).json({ success: false, message: "Student profile not found" });
+    }
+
+    const [updated] = await sql`
+      UPDATE student_profiles SET
+        full_name = COALESCE(NULLIF(${fullName || ""}, ""), full_name),
+        school = COALESCE(NULLIF(${school || ""}, ""), school),
+        district = COALESCE(NULLIF(${district || ""}, ""), district),
+        interests = CASE WHEN ${Array.isArray(interests) ? JSON.stringify(interests) : null}::jsonb IS NOT NULL 
+                        THEN ${Array.isArray(interests) ? interests : []}
+                        ELSE interests END,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE LOWER(email) = LOWER(${email})
+      RETURNING *;
+    `;
+
+    res.status(200).json({ success: true, data: updated });
+  } catch (error) {
+    console.error("Error updating student profile:", error);
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+});
+
 // POST / PUT create or update student profile (upsert)
 router.post("/", async (req, res) => {
   try {
     const {
       fullName,
       email,
-      stream,
-      zScore,
-      district,
+      stream = "Physical Science",
+      zScore = 0,
+      district = "Colombo",
+      school = "",
       interests = [],
       preferredLocations = [],
+      subjects = [],
     } = req.body;
 
-    if (!fullName || !email || !stream || zScore === undefined || !district) {
+    if (!fullName || !email) {
       return res.status(400).json({
         success: false,
-        message: "fullName, email, stream, zScore, and district are required",
+        message: "fullName and email are required",
       });
     }
 
+    // Normalize subjects to JSONB
+    const subjectsJson = Array.isArray(subjects) ? JSON.stringify(subjects) : "[]";
+
     const [profile] = await sql`
       INSERT INTO student_profiles (
-        full_name, email, stream, z_score, district, interests, preferred_locations, updated_at
+        full_name, email, stream, z_score, district, school,
+        interests, preferred_locations, subjects, updated_at
       )
       VALUES (
-        ${fullName}, LOWER(${email}), ${stream}, ${zScore}, ${district}, 
-        ${interests}, ${preferredLocations}, CURRENT_TIMESTAMP
+        ${fullName}, LOWER(${email}), ${stream}, ${parseFloat(zScore) || 0}, ${district}, ${school},
+        ${interests}, ${preferredLocations}, ${subjectsJson}::jsonb, CURRENT_TIMESTAMP
       )
       ON CONFLICT (email) 
       DO UPDATE SET
@@ -56,8 +96,10 @@ router.post("/", async (req, res) => {
         stream = EXCLUDED.stream,
         z_score = EXCLUDED.z_score,
         district = EXCLUDED.district,
+        school = COALESCE(NULLIF(EXCLUDED.school, ''), student_profiles.school),
         interests = EXCLUDED.interests,
         preferred_locations = EXCLUDED.preferred_locations,
+        subjects = EXCLUDED.subjects,
         updated_at = CURRENT_TIMESTAMP
       RETURNING *;
     `;

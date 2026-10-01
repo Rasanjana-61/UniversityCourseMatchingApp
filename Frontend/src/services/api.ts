@@ -64,6 +64,109 @@ export const api = {
     return res.json();
   },
 
+  // Auth APIs
+  register: async (data: {
+    fullName: string;
+    email: string;
+    password: string;
+    stream?: string;
+    district?: string;
+    school?: string;
+    zScore?: number;
+  }) => {
+    try {
+      const res = await fetch(`${getApiUrl()}/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      return await res.json();
+    } catch (error: any) {
+      return {
+        success: false,
+        message: "Cannot connect to backend server. Please check your network.",
+      };
+    }
+  },
+
+  login: async (credentials: { email: string; password: string }) => {
+    try {
+      const res = await fetch(`${getApiUrl()}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(credentials),
+      });
+      return await res.json();
+    } catch (error: any) {
+      return {
+        success: false,
+        message: "Cannot connect to backend server. Please check your network.",
+      };
+    }
+  },
+
+  getAuthProfile: async (token: string) => {
+    try {
+      const res = await fetch(`${getApiUrl()}/auth/me`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      return await res.json();
+    } catch (error: any) {
+      return { success: false, message: "Network error fetching profile" };
+    }
+  },
+
+  forgotPassword: async (email: string) => {
+    try {
+      const res = await fetch(`${getApiUrl()}/auth/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      return await res.json();
+    } catch (error: any) {
+      return {
+        success: false,
+        message: "Cannot connect to server. Please try again later.",
+      };
+    }
+  },
+
+  verifyOtp: async (email: string, otp: string) => {
+    try {
+      const res = await fetch(`${getApiUrl()}/auth/verify-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, otp }),
+      });
+      return await res.json();
+    } catch (error: any) {
+      return {
+        success: false,
+        message: "Cannot connect to server. Please try again later.",
+      };
+    }
+  },
+
+  resetPassword: async (data: { email: string; otp: string; newPassword: string }) => {
+    try {
+      const res = await fetch(`${getApiUrl()}/auth/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      return await res.json();
+    } catch (error: any) {
+      return {
+        success: false,
+        message: "Cannot connect to server. Please try again later.",
+      };
+    }
+  },
+
   // Student Profiles
   saveProfile: async (profile: {
     fullName: string;
@@ -71,33 +174,69 @@ export const api = {
     stream: string;
     zScore: number;
     district: string;
+    school?: string;
     interests?: string[];
     preferredLocations?: string[];
+    subjects?: { name: string; grade: string }[];
   }) => {
-    const res = await fetch(`${getApiUrl()}/students`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(profile),
-    });
-    return res.json();
+    try {
+      const res = await fetch(`${getApiUrl()}/students`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(profile),
+      });
+      return await res.json();
+    } catch (error: any) {
+      return { success: false, message: "Error saving profile" };
+    }
+  },
+
+  updateProfile: async (email: string, updates: {
+    fullName?: string;
+    school?: string;
+    district?: string;
+    interests?: string[];
+  }) => {
+    try {
+      const res = await fetch(`${getApiUrl()}/students/${encodeURIComponent(email)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      return await res.json();
+    } catch (error: any) {
+      return { success: false, message: "Error updating profile" };
+    }
   },
 
   getProfile: async (email: string) => {
-    const res = await fetch(`${getApiUrl()}/students/${encodeURIComponent(email)}`);
-    return res.json();
+    try {
+      const res = await fetch(`${getApiUrl()}/students/${encodeURIComponent(email)}`);
+      return await res.json();
+    } catch (error: any) {
+      return { success: false, message: "Error fetching profile" };
+    }
   },
 
   toggleSaveCourse: async (email: string, courseId: number | string) => {
-    const res = await fetch(`${getApiUrl()}/students/${encodeURIComponent(email)}/toggle-save`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ courseId }),
-    });
-    return res.json();
+    try {
+      const res = await fetch(`${getApiUrl()}/students/${encodeURIComponent(email)}/toggle-save`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ courseId }),
+      });
+      return await res.json();
+    } catch (error: any) {
+      return { success: false, message: "Error updating saved course" };
+    }
   },
 
   getSavedCourses: async (email: string) => {
-    const res = await fetch(`${getApiUrl()}/students/${encodeURIComponent(email)}/saved-courses`);
-    return res.json();
+    try {
+      const res = await fetch(`${getApiUrl()}/students/${encodeURIComponent(email)}/saved-courses`);
+      return await res.json();
+    } catch (error: any) {
+      return { success: false, message: "Error fetching saved courses" };
+    }
   },
 };
