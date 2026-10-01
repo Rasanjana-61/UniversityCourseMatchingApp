@@ -24,6 +24,29 @@ export const Colors = {
   },
 } as const;
 
+export const Brand = {
+  primary: '#1A56DB',
+  primaryDark: '#1E429F',
+  primaryLight: '#EBF5FF',
+  background: '#F8FAFC',
+  card: '#FFFFFF',
+  cardBorder: '#E2E8F0',
+  text: '#0F172A',
+  textSecondary: '#475569',
+  textMuted: '#94A3B8',
+  success: '#059669',
+  successLight: '#ECFDF5',
+  warning: '#D97706',
+  warningLight: '#FFFBEB',
+  danger: '#DC2626',
+  dangerLight: '#FEF2F2',
+  info: '#2563EB',
+  infoLight: '#EFF6FF',
+  border: '#CBD5E1',
+};
+
+
+
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
 export const Fonts = Platform.select({

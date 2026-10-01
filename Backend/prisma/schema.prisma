@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model University {
+  id          String   @id @default(uuid())
+  name        String
+  shortName   String   @unique // e.g. "UOM", "UOC", "UOP", "USJ"
+  location    String   // e.g. "Moratuwa", "Colombo", "Peradeniya"
+  district    String   // e.g. "Colombo", "Kandy"
+  description String?  @db.Text
+  website     String?
+  logoUrl     String?
+  courses     Course[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Course {
+  id                 String     @id @default(uuid())
+  name               String
+  code               String     // e.g. "ENG01", "CS01"
+  stream             String     // e.g. "Physical Science", "Biological Science", "Commerce", "Arts", "Technology"
+  degreeType         String     // e.g. "BSc (Hons) in Engineering", "BSc in Computing"
+  durationYears      Int        @default(4)
+  minZScore          Float      @default(0.0) // General minimum cutoff
+  districtCutoffs    Json?      // JSON mapping district names to cutoff z-scores: {"Colombo": 1.95, "Kandy": 1.89}
+  description        String?    @db.Text
+  careerPaths        String[]   // e.g. ["Software Engineer", "Systems Architect"]
+  universityId       String
+  university         University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  @@index([stream])
+  @@index([minZScore])
+}
+
+model StudentProfile {
+  id                 String   @id @default(uuid())
+  fullName           String
+  email              String   @unique
+  stream             String   // "Physical Science", "Biological Science", "Commerce", "Arts", "Technology"
+  zScore             Float
+  district           String
+  interests          String[] // e.g. ["Artificial Intelligence", "Robotics", "Finance"]
+  preferredLocations String[] // e.g. ["Colombo", "Kandy"]
+  savedCourseIds     String[] // Array of Course IDs
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
