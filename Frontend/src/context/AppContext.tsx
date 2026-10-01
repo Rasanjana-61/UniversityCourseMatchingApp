@@ -35,7 +35,14 @@ export type ScreenType =
   | "assessment-intro"
   | "assessment-questions"
   | "assessment-profile"
-  | "assessment-recommendations";
+  | "assessment-recommendations"
+  | "career-details"
+  | "job-opportunities"
+  | "salary-info"
+  | "compare-courses"
+  | "course-comparison"
+  | "scholarships"
+  | "scholarship-details";
 
 export type TabType = "home" | "search" | "assess" | "saved" | "profile";
 
@@ -67,6 +74,11 @@ interface AppContextType {
   setSelectedCourseId: (id: number | null) => void;
   selectedUniversityId: number | null;
   setSelectedUniversityId: (id: number | null) => void;
+  selectedScholarshipId: number | null;
+  setSelectedScholarshipId: (id: number | null) => void;
+  comparisonCourseIds: number[];
+  setComparisonCourseIds: (ids: number[]) => void;
+  toggleComparisonCourse: (id: number) => void;
   assessmentScores: any;
   setAssessmentScores: (scores: any) => void;
 }
@@ -97,7 +109,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null);
   const [selectedUniversityId, setSelectedUniversityId] = useState<number | null>(null);
+  const [selectedScholarshipId, setSelectedScholarshipId] = useState<number | null>(null);
+  const [comparisonCourseIds, setComparisonCourseIds] = useState<number[]>([]);
   const [assessmentScores, setAssessmentScores] = useState<any>(null);
+
+  const toggleComparisonCourse = (id: number) => {
+    setComparisonCourseIds((prev) => {
+      if (prev.includes(id)) {
+        return prev.filter((item) => item !== id);
+      } else {
+        if (prev.length >= 3) {
+          return [prev[1], prev[2], id]; // max 3, cycle out oldest
+        }
+        return [...prev, id];
+      }
+    });
+  };
 
   // Load saved session on app launch
   useEffect(() => {
@@ -294,6 +321,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setSelectedCourseId,
         selectedUniversityId,
         setSelectedUniversityId,
+        selectedScholarshipId,
+        setSelectedScholarshipId,
+        comparisonCourseIds,
+        setComparisonCourseIds,
+        toggleComparisonCourse,
         assessmentScores,
         setAssessmentScores,
       }}
