@@ -202,6 +202,27 @@ export const ExploreScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
+        {/* Quick Discovery Navigation Bar */}
+        <View style={styles.quickNavRow}>
+          <TouchableOpacity
+            style={styles.quickNavChip}
+            onPress={() => setCurrentScreen("compare-courses")}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="git-compare-outline" size={14} color={Brand.primary} style={{ marginRight: 6 }} />
+            <Text style={styles.quickNavChipText}>Compare Courses</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.quickNavChip}
+            onPress={() => setCurrentScreen("scholarships")}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="ribbon-outline" size={14} color="#D97706" style={{ marginRight: 6 }} />
+            <Text style={[styles.quickNavChipText, { color: "#D97706" }]}>Scholarships</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Stream Filter Chips — shown in Courses view */}
         {viewMode === "courses" && (
           <ScrollView
@@ -548,6 +569,27 @@ const styles = StyleSheet.create({
   },
   viewToggleTextActive: {
     color: "#FFFFFF",
+  },
+  quickNavRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 14,
+  },
+  quickNavChip: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: Brand.cardBorder,
+  },
+  quickNavChipText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Brand.primary,
   },
   filterScroll: {
     marginBottom: 14,

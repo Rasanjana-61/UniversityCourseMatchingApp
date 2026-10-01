@@ -82,6 +82,91 @@ export async function initDB() {
       );
     `;
 
+    // 5. Scholarships Table
+    await sql`
+      CREATE TABLE IF NOT EXISTS scholarships (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        category VARCHAR(100) NOT NULL, -- 'University', 'Merit', 'Need-based', 'Corporate'
+        provider VARCHAR(255) NOT NULL,
+        eligibility TEXT NOT NULL,
+        value VARCHAR(255) NOT NULL,
+        deadline VARCHAR(100) NOT NULL,
+        status VARCHAR(50) DEFAULT 'Open',
+        description TEXT,
+        benefits TEXT,
+        requirements TEXT,
+        application_instructions TEXT,
+        official_source_url VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+
+    // Seed sample scholarships if table is empty
+    const scholarshipCount = await sql`SELECT COUNT(*)::int as count FROM scholarships`;
+    if (scholarshipCount[0].count === 0) {
+      await sql`
+        INSERT INTO scholarships (title, category, provider, eligibility, value, deadline, status, description, benefits, requirements, application_instructions, official_source_url)
+        VALUES
+        (
+          'University Scholarship',
+          'University',
+          'University of Colombo',
+          'A/L 3.0 GPA, Sri Lankan citizen',
+          'Full tuition waiver + LKR 50,000 stipend',
+          '30 Sep 2026',
+          'Open',
+          'A merit-based scholarship for Sri Lankan A/L students joining undergraduate programmes with strong academic performance.',
+          'Tuition support • Monthly allowance',
+          'Academic transcripts, proof of family income and a personal statement are required.',
+          'Submit application through the University of Colombo Faculty Dean office.',
+          'https://cmb.ac.lk/scholarships'
+        ),
+        (
+          'Merit Scholarship',
+          'Merit',
+          'National Merit Fund',
+          'A/L 3.5 GPA, top 10% in district',
+          'LKR 150,000 annual stipend',
+          '15 Oct 2026',
+          'Open',
+          'Recognizing highest achievers in G.C.E. Advanced Level across all 25 administrative districts.',
+          'Direct grant of LKR 150,000 per year • Laptop subsidy scheme',
+          'Results verification sheet and personal statement',
+          'Shortlisted students will be invited for a panel interview after the initial application review.',
+          'https://mohe.gov.lk/merit-scholarships'
+        ),
+        (
+          'Financial Support',
+          'Need-based',
+          'Ministry of Higher Education',
+          'Low-income family, A/L pass',
+          'Monthly allowance + exam fee support',
+          'Open now',
+          'Open',
+          'Mahapola Higher Education Scholarship Scheme & Bursary grants for qualified state university undergraduates.',
+          'Mahapola Merit / Ordinary stipend up to LKR 5,000/month • Free hostel allocation priority',
+          'Grama Niladhari income certificate certified by Divisional Secretariat.',
+          'Priority is given to students from rural districts and families with demonstrated financial need.',
+          'https://mahapola.gov.lk'
+        ),
+        (
+          'Dialog Axiata Merit Grant',
+          'Corporate',
+          'Dialog Axiata PLC',
+          'Top district ranks in Maths & Bio Science streams',
+          'LKR 250,000 per year + Internship',
+          '30 Nov 2026',
+          'Open',
+          'Industry scholarship supporting bright undergraduates in STEM, Computing and Telecommunications.',
+          'Annual grant • Industry mentorship • Fast-track internship opportunities',
+          'G.C.E. A/L result sheet with district rank proof',
+          'Apply online via the Dialog Sustainability education portal.',
+          'https://dialog.lk/sustainability'
+        );
+      `;
+    }
+
     // Seed sample Universities & Courses if count is low
     const universityCount = await sql`SELECT COUNT(*)::int as count FROM universities`;
     const courseCount = await sql`SELECT COUNT(*)::int as count FROM courses`;

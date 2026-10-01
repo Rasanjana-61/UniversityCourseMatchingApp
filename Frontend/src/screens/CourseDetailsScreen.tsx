@@ -184,6 +184,32 @@ export const CourseDetailsScreen: React.FC = () => {
             })}
           </View>
         </View>
+
+        {/* Feature Action Buttons: Career Details & Compare */}
+        <View style={styles.actionButtonsContainer}>
+          <TouchableOpacity
+            style={styles.primaryActionButton}
+            onPress={() => setCurrentScreen("career-details")}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="briefcase" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+            <Text style={styles.primaryActionButtonText}>View Career & Salary Insights</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.secondaryActionButton}
+            onPress={() => {
+              if (course && course.id) {
+                // If not in comparison, add it
+                setCurrentScreen("compare-courses");
+              }
+            }}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="git-compare-outline" size={18} color={Brand.primary} style={{ marginRight: 8 }} />
+            <Text style={styles.secondaryActionButtonText}>Compare with other Courses</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -360,5 +386,43 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Brand.textSecondary,
     fontWeight: "500",
+  },
+  actionButtonsContainer: {
+    paddingHorizontal: 20,
+    marginTop: 20,
+    gap: 12,
+  },
+  primaryActionButton: {
+    backgroundColor: Brand.primary,
+    flexDirection: "row",
+    height: 48,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: Brand.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  primaryActionButtonText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  secondaryActionButton: {
+    backgroundColor: "#FFFFFF",
+    flexDirection: "row",
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    height: 48,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  secondaryActionButtonText: {
+    color: Brand.primary,
+    fontSize: 15,
+    fontWeight: "600",
   },
 });

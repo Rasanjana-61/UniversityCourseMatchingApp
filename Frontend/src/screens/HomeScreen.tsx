@@ -102,16 +102,26 @@ export const HomeScreen: React.FC = () => {
             <Text style={styles.outlineActionText}>Start assessment</Text>
           </TouchableOpacity>
 
-          {/* Secondary Outline 2 */}
+          {/* Secondary Outline 2: Compare Courses */}
           <TouchableOpacity
             style={styles.outlineActionButton}
             onPress={() => {
-              setActiveTab("search");
-              setCurrentScreen("explore");
+              setCurrentScreen("compare-courses");
             }}
             activeOpacity={0.85}
           >
             <Text style={styles.outlineActionText}>Compare courses</Text>
+          </TouchableOpacity>
+
+          {/* Secondary Outline 3: Scholarships */}
+          <TouchableOpacity
+            style={styles.outlineActionButton}
+            onPress={() => {
+              setCurrentScreen("scholarships");
+            }}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.outlineActionText}>View Scholarships</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

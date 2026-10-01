@@ -250,4 +250,27 @@ export const api = {
       return { success: false, message: "Error deleting account" };
     }
   },
+
+  // Scholarships APIs
+  getScholarships: async (params?: { category?: string; search?: string }) => {
+    try {
+      const query = new URLSearchParams();
+      if (params?.category && params.category !== "All") query.append("category", params.category);
+      if (params?.search) query.append("search", params.search);
+      const url = `${getApiUrl()}/scholarships${query.toString() ? `?${query.toString()}` : ""}`;
+      const res = await fetch(url);
+      return await res.json();
+    } catch (error: any) {
+      return { success: false, message: "Error fetching scholarships" };
+    }
+  },
+
+  getScholarshipById: async (id: number | string) => {
+    try {
+      const res = await fetch(`${getApiUrl()}/scholarships/${id}`);
+      return await res.json();
+    } catch (error: any) {
+      return { success: false, message: "Error fetching scholarship details" };
+    }
+  },
 };
