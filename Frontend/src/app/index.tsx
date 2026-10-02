@@ -28,6 +28,7 @@ import { ScholarshipDetailsScreen } from '@/screens/ScholarshipDetailsScreen';
 import { AdmissionRequirementsScreen } from '@/screens/AdmissionRequirementsScreen';
 import { AdminLoginScreen } from '@/screens/AdminLoginScreen';
 import { AdminDashboardScreen } from '@/screens/AdminDashboardScreen';
+import { StudentInquiriesScreen } from '@/screens/StudentInquiriesScreen';
 
 export default function AppEntry() {
   const { currentScreen } = useApp();
@@ -84,6 +85,9 @@ export default function AppEntry() {
         return <ScholarshipDetailsScreen />;
       case 'admission-requirements':
         return <AdmissionRequirementsScreen />;
+      case 'student-inquiries':
+      case 'inquiries':
+        return <StudentInquiriesScreen />;
       case 'admin-login':
       case 'admin-register':
       case 'teacher-login':
