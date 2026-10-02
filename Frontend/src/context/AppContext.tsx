@@ -42,7 +42,16 @@ export type ScreenType =
   | "compare-courses"
   | "course-comparison"
   | "scholarships"
-  | "scholarship-details";
+  | "scholarship-details"
+  | "admission-requirements"
+  | "teacher-login"
+  | "teacher-register"
+  | "teacher-dashboard"
+  | "teacher-students"
+  | "admin-login"
+  | "admin-register"
+  | "admin-dashboard"
+  | "admin-questions";
 
 export type TabType = "home" | "search" | "assess" | "saved" | "profile";
 
@@ -81,7 +90,27 @@ interface AppContextType {
   toggleComparisonCourse: (id: number) => void;
   assessmentScores: any;
   setAssessmentScores: (scores: any) => void;
+  // Admin Portal & Legacy Teacher
+  teacherData: TeacherData | null;
+  teacherToken: string | null;
+  teacherLogin: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
+  teacherLogout: () => void;
+  adminData: AdminData | null;
+  adminToken: string | null;
+  adminLogin: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
+  adminLogout: () => void;
 }
+
+export interface AdminData {
+  id?: number;
+  fullName: string;
+  email: string;
+  school: string;
+  subject: string;
+  role: string;
+}
+
+export type TeacherData = AdminData;
 
 const defaultStudent: StudentData = {
   fullName: "",
@@ -112,6 +141,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedScholarshipId, setSelectedScholarshipId] = useState<number | null>(null);
   const [comparisonCourseIds, setComparisonCourseIds] = useState<number[]>([]);
   const [assessmentScores, setAssessmentScores] = useState<any>(null);
+  const [teacherData, setTeacherData] = useState<TeacherData | null>(null);
+  const [teacherToken, setTeacherToken] = useState<string | null>(null);
 
   const toggleComparisonCourse = (id: number) => {
     setComparisonCourseIds((prev) => {
@@ -132,7 +163,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         const savedToken = await AsyncStorage.getItem("user_token");
         const savedUser = await AsyncStorage.getItem("user_profile");
-        if (savedToken && savedUser) {
+        const savedAdminToken = await AsyncStorage.getItem("admin_token") || await AsyncStorage.getItem("teacher_token");
+        const savedAdmin = await AsyncStorage.getItem("admin_profile") || await AsyncStorage.getItem("teacher_profile");
+        if (savedAdminToken && savedAdmin) {
+          const parsed = JSON.parse(savedAdmin);
+          setTeacherToken(savedAdminToken);
+          setTeacherData(parsed);
+          setCurrentScreen("admin-dashboard");
+        } else if (savedToken && savedUser) {
           setToken(savedToken);
           setStudent(JSON.parse(savedUser));
           setCurrentScreen("home");
@@ -251,6 +289,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCurrentScreen("welcome");
   };
 
+  const adminLogin = async (email: string, password: string): Promise<{ success: boolean; message: string }> => {
+    setIsLoading(true);
+    try {
+      const res = await api.adminLogin({ email, password });
+      if (res && res.success) {
+        const admin: AdminData = {
+          id: res.data.id,
+          fullName: res.data.fullName,
+          email: res.data.email,
+          school: res.data.school || "",
+          subject: res.data.subject || "",
+          role: res.data.role,
+        };
+        setTeacherToken(res.token);
+        setTeacherData(admin);
+        await AsyncStorage.setItem("admin_token", res.token);
+        await AsyncStorage.setItem("admin_profile", JSON.stringify(admin));
+        setCurrentScreen("admin-dashboard");
+        return { success: true, message: res.message || "Logged in successfully!" };
+      } else {
+        return { success: false, message: res.message || "Invalid email or password." };
+      }
+    } catch (err: any) {
+      return { success: false, message: "Network connection error. Please try again." };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const adminLogout = async () => {
+    setTeacherToken(null);
+    setTeacherData(null);
+    await AsyncStorage.removeItem("admin_token");
+    await AsyncStorage.removeItem("admin_profile");
+    await AsyncStorage.removeItem("teacher_token");
+    await AsyncStorage.removeItem("teacher_profile");
+    setCurrentScreen("welcome");
+  };
+
+  const teacherLogin = adminLogin;
+  const teacherLogout = adminLogout;
+
   const isCourseSaved = (courseId: number) => {
     return student.savedCourseIds.includes(courseId);
   };
@@ -328,6 +408,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toggleComparisonCourse,
         assessmentScores,
         setAssessmentScores,
+        teacherData,
+        teacherToken,
+        teacherLogin,
+        teacherLogout,
+        adminData: teacherData,
+        adminToken: teacherToken,
+        adminLogin,
+        adminLogout,
       }}
     >
       {children}
