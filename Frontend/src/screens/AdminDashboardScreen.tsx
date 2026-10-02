@@ -17,10 +17,10 @@ import { Brand } from "../constants/theme";
 import { useApp } from "../context/AppContext";
 import { api } from "../services/api";
 
-type AdminTab = "questions" | "students" | "overview";
+type AdminTab = "questions" | "inquiries" | "students" | "overview";
 
 export const AdminDashboardScreen: React.FC = () => {
-  const { adminData, adminToken, adminLogout, setCurrentScreen } = useApp();
+  const { adminData, adminToken, adminLogout } = useApp();
   const [activeTab, setActiveTab] = useState<AdminTab>("questions");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -34,6 +34,16 @@ export const AdminDashboardScreen: React.FC = () => {
   const [questionCategory, setQuestionCategory] = useState("Technology");
   const [sortOrder, setSortOrder] = useState("1");
   const [savingQuestion, setSavingQuestion] = useState(false);
+
+  // Inquiries / Support state
+  const [inquiries, setInquiries] = useState<any[]>([]);
+  const [inquiriesLoading, setInquiriesLoading] = useState(false);
+  const [inquirySearch, setInquirySearch] = useState("");
+  const [inquiryStatusFilter, setInquiryStatusFilter] = useState("");
+  const [replyModalVisible, setReplyModalVisible] = useState(false);
+  const [selectedInquiry, setSelectedInquiry] = useState<any | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [sendingReply, setSendingReply] = useState(false);
 
   // Students state
   const [students, setStudents] = useState<any[]>([]);
@@ -57,6 +67,22 @@ export const AdminDashboardScreen: React.FC = () => {
       setQuestionsLoading(false);
     }
   }, []);
+
+  const loadInquiries = useCallback(async () => {
+    if (!adminToken) return;
+    setInquiriesLoading(true);
+    try {
+      const res = await api.getAdminInquiries(adminToken, {
+        status: inquiryStatusFilter || undefined,
+        search: inquirySearch || undefined,
+      });
+      if (res && res.success) setInquiries(res.data);
+    } catch (e) {
+      console.log("Error loading inquiries:", e);
+    } finally {
+      setInquiriesLoading(false);
+    }
+  }, [adminToken, inquiryStatusFilter, inquirySearch]);
 
   const loadOverview = useCallback(async () => {
     if (!adminToken) return;
@@ -83,9 +109,9 @@ export const AdminDashboardScreen: React.FC = () => {
 
   const loadAll = useCallback(async () => {
     setLoading(true);
-    await Promise.all([loadQuestions(), loadOverview(), loadStudents()]);
+    await Promise.all([loadQuestions(), loadInquiries(), loadOverview(), loadStudents()]);
     setLoading(false);
-  }, [loadQuestions, loadOverview, loadStudents]);
+  }, [loadQuestions, loadInquiries, loadOverview, loadStudents]);
 
   useEffect(() => {
     loadAll();
@@ -93,7 +119,8 @@ export const AdminDashboardScreen: React.FC = () => {
 
   useEffect(() => {
     if (activeTab === "students") loadStudents();
-  }, [filterStream, searchStudent, activeTab]);
+    if (activeTab === "inquiries") loadInquiries();
+  }, [filterStream, searchStudent, inquiryStatusFilter, inquirySearch, activeTab]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -101,6 +128,7 @@ export const AdminDashboardScreen: React.FC = () => {
     setRefreshing(false);
   };
 
+  // --- Questions CRUD Handlers ---
   const openCreateModal = () => {
     setEditingQuestion(null);
     setQuestionText("");
@@ -130,7 +158,6 @@ export const AdminDashboardScreen: React.FC = () => {
     setSavingQuestion(true);
     try {
       if (editingQuestion) {
-        // Update
         const res = await api.updateQuestion(adminToken, editingQuestion.id, {
           text: questionText.trim(),
           category: questionCategory,
@@ -144,7 +171,6 @@ export const AdminDashboardScreen: React.FC = () => {
           Alert.alert("Error", res.message || "Failed to update question.");
         }
       } else {
-        // Create
         const res = await api.createQuestion(adminToken, {
           text: questionText.trim(),
           category: questionCategory,
@@ -193,6 +219,55 @@ export const AdminDashboardScreen: React.FC = () => {
     );
   };
 
+  // --- Inquiries Handlers ---
+  const openReplyModal = (inq: any) => {
+    setSelectedInquiry(inq);
+    setReplyText(inq.admin_reply || "");
+    setReplyModalVisible(true);
+  };
+
+  const handleSendReply = async () => {
+    if (!replyText.trim()) {
+      Alert.alert("Required", "Please write a response before sending.");
+      return;
+    }
+    if (!adminToken || !selectedInquiry) return;
+
+    setSendingReply(true);
+    try {
+      const res = await api.replyToInquiry(adminToken, selectedInquiry.id, replyText.trim(), "Replied");
+      if (res && res.success) {
+        Alert.alert("Reply Sent", "Your response has been sent to the student!");
+        setReplyModalVisible(false);
+        loadInquiries();
+      } else {
+        Alert.alert("Error", res?.message || "Failed to send response.");
+      }
+    } catch (e: any) {
+      Alert.alert("Error", e.message || "Network error.");
+    } finally {
+      setSendingReply(false);
+    }
+  };
+
+  const handleCloseInquiry = (id: number) => {
+    Alert.alert("Close Inquiry", "Mark this student inquiry as Closed/Resolved?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Mark Closed",
+        onPress: async () => {
+          if (!adminToken) return;
+          try {
+            await api.replyToInquiry(adminToken, id, selectedInquiry?.admin_reply || "Inquiry resolved.", "Closed");
+            loadInquiries();
+          } catch (e) {
+            console.log(e);
+          }
+        },
+      },
+    ]);
+  };
+
   const handleLogout = () => {
     Alert.alert("Sign Out", "Are you sure you want to sign out from the Admin Panel?", [
       { text: "Cancel", style: "cancel" },
@@ -215,12 +290,25 @@ export const AdminDashboardScreen: React.FC = () => {
     }
   };
 
+  const getInquiryStatusBadge = (status: string) => {
+    switch (status) {
+      case "Replied":
+        return { bg: "#ECFDF5", text: "#059669", icon: "checkmark-circle", label: "Replied" };
+      case "Closed":
+        return { bg: "#F1F5F9", text: "#64748B", icon: "archive-outline", label: "Closed" };
+      default:
+        return { bg: "#FFFBEB", text: "#D97706", icon: "time-outline", label: "Pending" };
+    }
+  };
+
   const getZScoreColor = (z: number) => {
     if (z >= 2.0) return "#10B981";
     if (z >= 1.7) return "#3B82F6";
     if (z >= 1.4) return "#F59E0B";
     return "#EF4444";
   };
+
+  const pendingInquiriesCount = inquiries.filter((i) => i.status === "Pending").length;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
@@ -229,14 +317,14 @@ export const AdminDashboardScreen: React.FC = () => {
         <View style={styles.headerLeft}>
           <View style={styles.adminBadge}>
             <Ionicons name="shield-checkmark" size={16} color="#FFFFFF" />
-            <Text style={styles.adminBadgeText}>ADMIN PANEL</Text>
+            <Text style={styles.adminBadgeText}>ADMIN CONTROL</Text>
           </View>
           <Text style={styles.headerTitle}>{adminData?.fullName || "Administrator"}</Text>
           <Text style={styles.headerSubtitle}>{adminData?.email || "Platform Control"}</Text>
         </View>
 
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+          <Ionicons name="log-out-outline" size={18} color="#EF4444" />
           <Text style={styles.logoutBtnText}>Logout</Text>
         </TouchableOpacity>
       </View>
@@ -249,7 +337,7 @@ export const AdminDashboardScreen: React.FC = () => {
         >
           <Ionicons
             name="help-circle-outline"
-            size={18}
+            size={16}
             color={activeTab === "questions" ? "#FFFFFF" : Brand.textMuted}
           />
           <Text
@@ -260,12 +348,28 @@ export const AdminDashboardScreen: React.FC = () => {
         </TouchableOpacity>
 
         <TouchableOpacity
+          style={[styles.tabItem, activeTab === "inquiries" && styles.tabItemActive]}
+          onPress={() => setActiveTab("inquiries")}
+        >
+          <Ionicons
+            name="chatbubbles-outline"
+            size={16}
+            color={activeTab === "inquiries" ? "#FFFFFF" : Brand.textMuted}
+          />
+          <Text
+            style={[styles.tabItemText, activeTab === "inquiries" && styles.tabItemTextActive]}
+          >
+            Inquiries {pendingInquiriesCount > 0 ? `(${pendingInquiriesCount})` : ""}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           style={[styles.tabItem, activeTab === "students" && styles.tabItemActive]}
           onPress={() => setActiveTab("students")}
         >
           <Ionicons
             name="people-outline"
-            size={18}
+            size={16}
             color={activeTab === "students" ? "#FFFFFF" : Brand.textMuted}
           />
           <Text
@@ -281,13 +385,13 @@ export const AdminDashboardScreen: React.FC = () => {
         >
           <Ionicons
             name="bar-chart-outline"
-            size={18}
+            size={16}
             color={activeTab === "overview" ? "#FFFFFF" : Brand.textMuted}
           />
           <Text
             style={[styles.tabItemText, activeTab === "overview" && styles.tabItemTextActive]}
           >
-            Analytics
+            Stats
           </Text>
         </TouchableOpacity>
       </View>
@@ -303,17 +407,12 @@ export const AdminDashboardScreen: React.FC = () => {
           style={styles.content}
           contentContainerStyle={{ paddingBottom: 40 }}
           refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={Brand.primary}
-            />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Brand.primary} />
           }
         >
-          {/* TAB 1: QUESTIONS CRUD (Main Request) */}
+          {/* TAB 1: QUESTIONS CRUD */}
           {activeTab === "questions" && (
             <View style={styles.tabContent}>
-              {/* Action Banner */}
               <View style={styles.actionBanner}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.bannerHeading}>Aptitude Questions CRUD</Text>
@@ -323,12 +422,11 @@ export const AdminDashboardScreen: React.FC = () => {
                 </View>
 
                 <TouchableOpacity style={styles.addBtn} onPress={openCreateModal}>
-                  <Ionicons name="add-circle" size={20} color="#FFFFFF" style={{ marginRight: 6 }} />
+                  <Ionicons name="add-circle" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
                   <Text style={styles.addBtnText}>Add Question</Text>
                 </TouchableOpacity>
               </View>
 
-              {/* Questions List */}
               {questionsLoading ? (
                 <ActivityIndicator color={Brand.primary} style={{ marginTop: 24 }} />
               ) : questions.length === 0 ? (
@@ -354,21 +452,17 @@ export const AdminDashboardScreen: React.FC = () => {
                         </View>
 
                         <View style={styles.cardActionGroup}>
-                          <TouchableOpacity
-                            style={styles.iconActionBtn}
-                            onPress={() => openEditModal(q)}
-                          >
-                            <Ionicons name="pencil" size={17} color={Brand.primary} />
+                          <TouchableOpacity style={styles.iconActionBtn} onPress={() => openEditModal(q)}>
+                            <Ionicons name="pencil" size={16} color={Brand.primary} />
                           </TouchableOpacity>
                           <TouchableOpacity
                             style={[styles.iconActionBtn, styles.deleteBtn]}
                             onPress={() => handleDeleteQuestion(q.id, q.text)}
                           >
-                            <Ionicons name="trash-outline" size={17} color="#EF4444" />
+                            <Ionicons name="trash-outline" size={16} color="#EF4444" />
                           </TouchableOpacity>
                         </View>
                       </View>
-
                       <Text style={styles.qText}>{q.text}</Text>
                     </View>
                   );
@@ -377,10 +471,116 @@ export const AdminDashboardScreen: React.FC = () => {
             </View>
           )}
 
-          {/* TAB 2: STUDENTS MONITORING */}
+          {/* TAB 2: INQUIRIES & MESSAGES MANAGEMENT (2️⃣5️⃣ Screen) */}
+          {activeTab === "inquiries" && (
+            <View style={styles.tabContent}>
+              <View style={styles.searchBox}>
+                <Ionicons name="search" size={18} color={Brand.textMuted} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search inquiries by student or keyword..."
+                  placeholderTextColor={Brand.textMuted}
+                  value={inquirySearch}
+                  onChangeText={setInquirySearch}
+                />
+                {inquirySearch ? (
+                  <TouchableOpacity onPress={() => setInquirySearch("")}>
+                    <Ionicons name="close-circle" size={18} color={Brand.textMuted} />
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+
+              {/* Status Filter Row */}
+              <View style={styles.filterPillsRow}>
+                {["", "Pending", "Replied", "Closed"].map((st) => {
+                  const selected = inquiryStatusFilter === st;
+                  return (
+                    <TouchableOpacity
+                      key={st}
+                      style={[styles.filterPill, selected && styles.filterPillActive]}
+                      onPress={() => setInquiryStatusFilter(st)}
+                    >
+                      <Text style={[styles.filterPillText, selected && styles.filterPillTextActive]}>
+                        {st || "All Inquiries"}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <Text style={styles.sectionHeader}>
+                Student Inquiries & Requests ({inquiries.length})
+              </Text>
+
+              {inquiriesLoading ? (
+                <ActivityIndicator color={Brand.primary} style={{ marginTop: 24 }} />
+              ) : inquiries.length === 0 ? (
+                <View style={styles.emptyCard}>
+                  <Ionicons name="chatbubbles-outline" size={48} color={Brand.textMuted} />
+                  <Text style={styles.emptyTitle}>No Inquiries Found</Text>
+                  <Text style={styles.emptySub}>All student messages have been answered or resolved.</Text>
+                </View>
+              ) : (
+                inquiries.map((inq) => {
+                  const badge = getInquiryStatusBadge(inq.status);
+                  return (
+                    <View key={inq.id} style={styles.inquiryCard}>
+                      <View style={styles.inquiryCardTop}>
+                        <View style={styles.studentBadgeWrap}>
+                          <Text style={styles.studentNameTag}>{inq.student_name || "Student"}</Text>
+                          <Text style={styles.studentEmailTag}>{inq.student_email}</Text>
+                        </View>
+
+                        <View style={[styles.statusBadge, { backgroundColor: badge.bg }]}>
+                          <Ionicons name={badge.icon as any} size={12} color={badge.text} style={{ marginRight: 4 }} />
+                          <Text style={[styles.statusBadgeText, { color: badge.text }]}>
+                            {badge.label}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <Text style={styles.inquirySubject}>{inq.subject}</Text>
+                      <Text style={styles.inquiryMessage}>{inq.message}</Text>
+
+                      {inq.admin_reply ? (
+                        <View style={styles.adminReplySnippet}>
+                          <Ionicons name="checkmark-done" size={14} color="#059669" />
+                          <Text style={styles.adminReplyText} numberOfLines={3}>
+                            <Text style={{ fontWeight: "700" }}>Your Reply: </Text>
+                            {inq.admin_reply}
+                          </Text>
+                        </View>
+                      ) : null}
+
+                      <View style={styles.inquiryActionRow}>
+                        <Text style={styles.inquiryDate}>
+                          {inq.created_at ? new Date(inq.created_at).toLocaleDateString() : ""}
+                        </Text>
+                        <TouchableOpacity
+                          style={styles.replyActionBtn}
+                          onPress={() => openReplyModal(inq)}
+                        >
+                          <Ionicons
+                            name={inq.admin_reply ? "pencil-outline" : "paper-plane-outline"}
+                            size={14}
+                            color="#FFFFFF"
+                            style={{ marginRight: 6 }}
+                          />
+                          <Text style={styles.replyActionBtnText}>
+                            {inq.admin_reply ? "Edit Reply" : "Reply to Student"}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  );
+                })
+              )}
+            </View>
+          )}
+
+          {/* TAB 3: STUDENTS MONITORING */}
           {activeTab === "students" && (
             <View style={styles.tabContent}>
-              {/* Search & Filter */}
               <View style={styles.searchBox}>
                 <Ionicons name="search" size={18} color={Brand.textMuted} />
                 <TextInput
@@ -390,43 +590,23 @@ export const AdminDashboardScreen: React.FC = () => {
                   value={searchStudent}
                   onChangeText={setSearchStudent}
                 />
-                {searchStudent ? (
-                  <TouchableOpacity onPress={() => setSearchStudent("")}>
-                    <Ionicons name="close-circle" size={18} color={Brand.textMuted} />
-                  </TouchableOpacity>
-                ) : null}
               </View>
 
-              {/* Stream Filters */}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={styles.streamFilterScroll}
-              >
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.streamFilterScroll}>
                 {streams.map((s) => (
                   <TouchableOpacity
                     key={s}
-                    style={[
-                      styles.streamPill,
-                      filterStream === s && styles.streamPillActive,
-                    ]}
+                    style={[styles.streamPill, filterStream === s && styles.streamPillActive]}
                     onPress={() => setFilterStream(s)}
                   >
-                    <Text
-                      style={[
-                        styles.streamPillText,
-                        filterStream === s && styles.streamPillTextActive,
-                      ]}
-                    >
+                    <Text style={[styles.streamPillText, filterStream === s && styles.streamPillTextActive]}>
                       {s || "All Streams"}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
 
-              <Text style={styles.sectionHeader}>
-                Registered Students ({students.length})
-              </Text>
+              <Text style={styles.sectionHeader}>Registered Students ({students.length})</Text>
 
               {students.length === 0 ? (
                 <View style={styles.emptyCard}>
@@ -438,26 +618,14 @@ export const AdminDashboardScreen: React.FC = () => {
                   <View key={st.id} style={styles.card}>
                     <View style={styles.studentCardHeader}>
                       <View style={styles.avatar}>
-                        <Text style={styles.avatarText}>
-                          {(st.fullName || "S").charAt(0).toUpperCase()}
-                        </Text>
+                        <Text style={styles.avatarText}>{(st.fullName || "S").charAt(0).toUpperCase()}</Text>
                       </View>
                       <View style={{ flex: 1, marginLeft: 12 }}>
                         <Text style={styles.studentName}>{st.fullName}</Text>
                         <Text style={styles.studentEmail}>{st.email}</Text>
                       </View>
-                      <View
-                        style={[
-                          styles.zScoreBadge,
-                          { backgroundColor: `${getZScoreColor(st.zScore)}15` },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.zScoreText,
-                            { color: getZScoreColor(st.zScore) },
-                          ]}
-                        >
+                      <View style={[styles.zScoreBadge, { backgroundColor: `${getZScoreColor(st.zScore)}15` }]}>
+                        <Text style={[styles.zScoreText, { color: getZScoreColor(st.zScore) }]}>
                           Z: {st.zScore ? st.zScore.toFixed(4) : "N/A"}
                         </Text>
                       </View>
@@ -479,28 +647,24 @@ export const AdminDashboardScreen: React.FC = () => {
             </View>
           )}
 
-          {/* TAB 3: OVERVIEW & ANALYTICS */}
+          {/* TAB 4: OVERVIEW & ANALYTICS */}
           {activeTab === "overview" && dashData && (
             <View style={styles.tabContent}>
-              {/* Metrics Grid */}
               <View style={styles.statsGrid}>
                 <View style={[styles.statBox, { borderLeftColor: Brand.primary }]}>
                   <Text style={styles.statLabel}>Total Students</Text>
                   <Text style={styles.statNum}>{dashData.summary?.totalStudents || 0}</Text>
                 </View>
-
                 <View style={[styles.statBox, { borderLeftColor: "#10B981" }]}>
                   <Text style={styles.statLabel}>Avg Z-Score</Text>
                   <Text style={[styles.statNum, { color: "#10B981" }]}>
                     {dashData.summary?.averageZScore?.toFixed(3) || "0.000"}
                   </Text>
                 </View>
-
                 <View style={[styles.statBox, { borderLeftColor: "#8B5CF6" }]}>
                   <Text style={styles.statLabel}>Govt Courses</Text>
                   <Text style={styles.statNum}>{dashData.summary?.totalCourses || 0}</Text>
                 </View>
-
                 <View style={[styles.statBox, { borderLeftColor: "#F59E0B" }]}>
                   <Text style={styles.statLabel}>Questions</Text>
                   <Text style={[styles.statNum, { color: "#F59E0B" }]}>
@@ -509,7 +673,6 @@ export const AdminDashboardScreen: React.FC = () => {
                 </View>
               </View>
 
-              {/* Stream Breakdown */}
               <View style={styles.card}>
                 <Text style={styles.cardTitle}>Students by A/L Stream</Text>
                 {dashData.streamDistribution?.map((item: any) => (
@@ -537,13 +700,8 @@ export const AdminDashboardScreen: React.FC = () => {
         </ScrollView>
       )}
 
-      {/* CREATE / EDIT QUESTION MODAL */}
-      <Modal
-        visible={modalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setModalVisible(false)}
-      >
+      {/* MODAL 1: CREATE / EDIT QUESTION */}
+      <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -556,7 +714,6 @@ export const AdminDashboardScreen: React.FC = () => {
             </View>
 
             <ScrollView>
-              {/* Question Text */}
               <Text style={styles.modalLabel}>Question Text *</Text>
               <TextInput
                 style={styles.modalTextInput}
@@ -568,7 +725,6 @@ export const AdminDashboardScreen: React.FC = () => {
                 onChangeText={setQuestionText}
               />
 
-              {/* Category Picker Buttons */}
               <Text style={styles.modalLabel}>Category / Trait *</Text>
               <View style={styles.catPickerGrid}>
                 {categories.map((cat) => {
@@ -584,12 +740,7 @@ export const AdminDashboardScreen: React.FC = () => {
                       onPress={() => setQuestionCategory(cat)}
                     >
                       <View style={[styles.catDot, { backgroundColor: catColor }]} />
-                      <Text
-                        style={[
-                          styles.catOptionText,
-                          isSelected && { color: catColor, fontWeight: "700" },
-                        ]}
-                      >
+                      <Text style={[styles.catOptionText, isSelected && { color: catColor, fontWeight: "700" }]}>
                         {cat}
                       </Text>
                     </TouchableOpacity>
@@ -597,7 +748,6 @@ export const AdminDashboardScreen: React.FC = () => {
                 })}
               </View>
 
-              {/* Sort Order */}
               <Text style={styles.modalLabel}>Order Position</Text>
               <TextInput
                 style={styles.modalInput}
@@ -606,7 +756,6 @@ export const AdminDashboardScreen: React.FC = () => {
                 onChangeText={setSortOrder}
               />
 
-              {/* Save / Cancel buttons */}
               <View style={styles.modalBtnRow}>
                 <TouchableOpacity
                   style={styles.modalCancelBtn}
@@ -634,15 +783,71 @@ export const AdminDashboardScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
+
+      {/* MODAL 2: REPLY TO INQUIRY */}
+      <Modal visible={replyModalVisible} transparent animationType="slide" onRequestClose={() => setReplyModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: "85%" }]}>
+            {selectedInquiry && (
+              <>
+                <View style={styles.modalHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.modalCategoryText}>Responding to {selectedInquiry.student_name}</Text>
+                    <Text style={styles.modalTitle}>{selectedInquiry.subject}</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setReplyModalVisible(false)}>
+                    <Ionicons name="close" size={24} color={Brand.text} />
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  <Text style={styles.modalLabel}>Student Question:</Text>
+                  <View style={styles.studentQuestionQuote}>
+                    <Text style={styles.quoteText}>{selectedInquiry.message}</Text>
+                  </View>
+
+                  <Text style={styles.modalLabel}>Official Advisor Response *</Text>
+                  <TextInput
+                    style={[styles.modalTextInput, { height: 110 }]}
+                    multiline
+                    placeholder="Type official guidance, UGC entrance guidelines or solution..."
+                    placeholderTextColor={Brand.textMuted}
+                    value={replyText}
+                    onChangeText={setReplyText}
+                  />
+
+                  <View style={styles.modalBtnRow}>
+                    <TouchableOpacity
+                      style={styles.modalCancelBtn}
+                      onPress={() => handleCloseInquiry(selectedInquiry.id)}
+                    >
+                      <Text style={[styles.modalCancelText, { color: "#64748B" }]}>Close Ticket</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.modalSaveBtn, sendingReply && { opacity: 0.6 }]}
+                      onPress={handleSendReply}
+                      disabled={sendingReply}
+                    >
+                      {sendingReply ? (
+                        <ActivityIndicator color="#FFFFFF" />
+                      ) : (
+                        <Text style={styles.modalSaveText}>Send Response</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </ScrollView>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#F8FAFC",
-  },
+  safeArea: { flex: 1, backgroundColor: "#F8FAFC" },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -653,9 +858,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#E2E8F0",
   },
-  headerLeft: {
-    flex: 1,
-  },
+  headerLeft: { flex: 1 },
   adminBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -673,15 +876,8 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     letterSpacing: 0.5,
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: Brand.text,
-  },
-  headerSubtitle: {
-    fontSize: 12,
-    color: Brand.textMuted,
-  },
+  headerTitle: { fontSize: 18, fontWeight: "700", color: Brand.text },
+  headerSubtitle: { fontSize: 12, color: Brand.textMuted },
   logoutBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -690,20 +886,15 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: "#FEE2E2",
   },
-  logoutBtnText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#EF4444",
-    marginLeft: 4,
-  },
+  logoutBtnText: { fontSize: 13, fontWeight: "600", color: "#EF4444", marginLeft: 4 },
   tabBar: {
     flexDirection: "row",
     backgroundColor: "#FFFFFF",
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: "#E2E8F0",
-    gap: 8,
+    gap: 6,
   },
   tabItem: {
     flex: 1,
@@ -714,35 +905,13 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: "#F1F5F9",
   },
-  tabItemActive: {
-    backgroundColor: Brand.primary,
-  },
-  tabItemText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: Brand.textSecondary,
-    marginLeft: 6,
-  },
-  tabItemTextActive: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-  },
-  centerLoading: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  loadingText: {
-    marginTop: 12,
-    color: Brand.textMuted,
-    fontSize: 14,
-  },
-  content: {
-    flex: 1,
-  },
-  tabContent: {
-    padding: 16,
-  },
+  tabItemActive: { backgroundColor: Brand.primary },
+  tabItemText: { fontSize: 11, fontWeight: "600", color: Brand.textSecondary, marginLeft: 4 },
+  tabItemTextActive: { color: "#FFFFFF", fontWeight: "700" },
+  centerLoading: { flex: 1, alignItems: "center", justifyContent: "center" },
+  loadingText: { marginTop: 12, color: Brand.textMuted, fontSize: 14 },
+  content: { flex: 1 },
+  tabContent: { padding: 16 },
   actionBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -754,29 +923,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E2E8F0",
   },
-  bannerHeading: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: Brand.text,
-  },
-  bannerSub: {
-    fontSize: 12,
-    color: Brand.textMuted,
-    marginTop: 2,
-  },
+  bannerHeading: { fontSize: 16, fontWeight: "700", color: Brand.text },
+  bannerSub: { fontSize: 12, color: Brand.textMuted, marginTop: 2 },
   addBtn: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: Brand.primary,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 9,
     borderRadius: 10,
   },
-  addBtnText: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "700",
-  },
+  addBtnText: { color: "#FFFFFF", fontSize: 12, fontWeight: "700" },
   card: {
     backgroundColor: "#FFFFFF",
     borderRadius: 14,
@@ -785,11 +942,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E2E8F0",
   },
-  cardTopRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-  },
+  cardTopRow: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
   qNumberPill: {
     backgroundColor: "#F1F5F9",
     paddingHorizontal: 8,
@@ -797,11 +950,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginRight: 8,
   },
-  qNumberText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: Brand.textSecondary,
-  },
+  qNumberText: { fontSize: 12, fontWeight: "700", color: Brand.textSecondary },
   categoryBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -809,21 +958,9 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 12,
   },
-  catDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginRight: 6,
-  },
-  categoryText: {
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  cardActionGroup: {
-    flexDirection: "row",
-    marginLeft: "auto",
-    gap: 8,
-  },
+  catDot: { width: 6, height: 6, borderRadius: 3, marginRight: 6 },
+  categoryText: { fontSize: 12, fontWeight: "700" },
+  cardActionGroup: { flexDirection: "row", marginLeft: "auto", gap: 8 },
   iconActionBtn: {
     width: 32,
     height: 32,
@@ -832,15 +969,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  deleteBtn: {
-    backgroundColor: "#FEE2E2",
-  },
-  qText: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: Brand.text,
-    fontWeight: "500",
-  },
+  deleteBtn: { backgroundColor: "#FEE2E2" },
+  qText: { fontSize: 14, lineHeight: 20, color: Brand.text, fontWeight: "500" },
   emptyCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 14,
@@ -850,17 +980,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E2E8F0",
   },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: Brand.text,
-    marginTop: 10,
-  },
-  emptySub: {
-    fontSize: 13,
-    color: Brand.textMuted,
-    marginTop: 4,
-  },
+  emptyTitle: { fontSize: 16, fontWeight: "700", color: Brand.text, marginTop: 10 },
+  emptySub: { fontSize: 13, color: Brand.textMuted, marginTop: 4, textAlign: "center" },
   searchBox: {
     flexDirection: "row",
     alignItems: "center",
@@ -872,16 +993,74 @@ const styles = StyleSheet.create({
     height: 44,
     marginBottom: 12,
   },
-  searchInput: {
-    flex: 1,
-    fontSize: 14,
-    color: Brand.text,
-    marginLeft: 8,
+  searchInput: { flex: 1, fontSize: 14, color: Brand.text, marginLeft: 8 },
+  filterPillsRow: { flexDirection: "row", gap: 8, marginBottom: 14 },
+  filterPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
   },
-  streamFilterScroll: {
+  filterPillActive: { backgroundColor: Brand.primary, borderColor: Brand.primary },
+  filterPillText: { fontSize: 12, color: Brand.textSecondary, fontWeight: "600" },
+  filterPillTextActive: { color: "#FFFFFF", fontWeight: "700" },
+  inquiryCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  inquiryCardTop: {
     flexDirection: "row",
-    marginBottom: 16,
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    marginBottom: 8,
   },
+  studentBadgeWrap: { flex: 1 },
+  studentNameTag: { fontSize: 14, fontWeight: "700", color: Brand.text },
+  studentEmailTag: { fontSize: 11, color: Brand.textMuted },
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  statusBadgeText: { fontSize: 11, fontWeight: "700" },
+  inquirySubject: { fontSize: 15, fontWeight: "700", color: Brand.text, marginBottom: 6 },
+  inquiryMessage: { fontSize: 13, color: Brand.textSecondary, lineHeight: 19, marginBottom: 10 },
+  adminReplySnippet: {
+    flexDirection: "row",
+    backgroundColor: "#ECFDF5",
+    padding: 10,
+    borderRadius: 10,
+    marginBottom: 10,
+    alignItems: "flex-start",
+  },
+  adminReplyText: { flex: 1, fontSize: 12, color: "#065F46", marginLeft: 6, lineHeight: 16 },
+  inquiryActionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
+  },
+  inquiryDate: { fontSize: 12, color: Brand.textMuted },
+  replyActionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Brand.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+  },
+  replyActionBtnText: { color: "#FFFFFF", fontSize: 12, fontWeight: "700" },
+  streamFilterScroll: { flexDirection: "row", marginBottom: 16 },
   streamPill: {
     paddingHorizontal: 14,
     paddingVertical: 7,
@@ -891,29 +1070,11 @@ const styles = StyleSheet.create({
     borderColor: "#E2E8F0",
     marginRight: 8,
   },
-  streamPillActive: {
-    backgroundColor: Brand.primary,
-    borderColor: Brand.primary,
-  },
-  streamPillText: {
-    fontSize: 12,
-    color: Brand.textSecondary,
-    fontWeight: "600",
-  },
-  streamPillTextActive: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-  },
-  sectionHeader: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: Brand.text,
-    marginBottom: 10,
-  },
-  studentCardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
+  streamPillActive: { backgroundColor: Brand.primary, borderColor: Brand.primary },
+  streamPillText: { fontSize: 12, color: Brand.textSecondary, fontWeight: "600" },
+  streamPillTextActive: { color: "#FFFFFF", fontWeight: "700" },
+  sectionHeader: { fontSize: 15, fontWeight: "700", color: Brand.text, marginBottom: 10 },
+  studentCardHeader: { flexDirection: "row", alignItems: "center" },
   avatar: {
     width: 38,
     height: 38,
@@ -922,30 +1083,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: Brand.primary,
-  },
-  studentName: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: Brand.text,
-  },
-  studentEmail: {
-    fontSize: 12,
-    color: Brand.textMuted,
-    marginTop: 1,
-  },
-  zScoreBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  zScoreText: {
-    fontSize: 12,
-    fontWeight: "700",
-  },
+  avatarText: { fontSize: 16, fontWeight: "700", color: Brand.primary },
+  studentName: { fontSize: 14, fontWeight: "700", color: Brand.text },
+  studentEmail: { fontSize: 12, color: Brand.textMuted, marginTop: 1 },
+  zScoreBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  zScoreText: { fontSize: 12, fontWeight: "700" },
   studentMetaRow: {
     flexDirection: "row",
     gap: 16,
@@ -954,21 +1096,9 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "#F1F5F9",
   },
-  metaItem: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  metaText: {
-    fontSize: 12,
-    color: Brand.textSecondary,
-    marginLeft: 4,
-  },
-  statsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-    marginBottom: 16,
-  },
+  metaItem: { flexDirection: "row", alignItems: "center" },
+  metaText: { fontSize: 12, color: Brand.textSecondary, marginLeft: 4 },
+  statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginBottom: 16 },
   statBox: {
     width: "48%",
     backgroundColor: "#FFFFFF",
@@ -978,34 +1108,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E2E8F0",
   },
-  statLabel: {
-    fontSize: 12,
-    color: Brand.textMuted,
-    fontWeight: "600",
-  },
-  statNum: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: Brand.text,
-    marginTop: 4,
-  },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: Brand.text,
-    marginBottom: 12,
-  },
-  distributionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  distLabel: {
-    width: 120,
-    fontSize: 12,
-    color: Brand.textSecondary,
-    fontWeight: "500",
-  },
+  statLabel: { fontSize: 12, color: Brand.textMuted, fontWeight: "600" },
+  statNum: { fontSize: 22, fontWeight: "800", color: Brand.text, marginTop: 4 },
+  cardTitle: { fontSize: 15, fontWeight: "700", color: Brand.text, marginBottom: 12 },
+  distributionRow: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
+  distLabel: { width: 120, fontSize: 12, color: Brand.textSecondary, fontWeight: "500" },
   distBarWrap: {
     flex: 1,
     height: 8,
@@ -1014,23 +1121,9 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     marginHorizontal: 8,
   },
-  distBarFill: {
-    height: "100%",
-    backgroundColor: Brand.primary,
-    borderRadius: 4,
-  },
-  distCount: {
-    width: 30,
-    fontSize: 12,
-    fontWeight: "700",
-    color: Brand.text,
-    textAlign: "right",
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "flex-end",
-  },
+  distBarFill: { height: "100%", backgroundColor: Brand.primary, borderRadius: 4 },
+  distCount: { width: 30, fontSize: 12, fontWeight: "700", color: Brand.text, textAlign: "right" },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
   modalContent: {
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 24,
@@ -1047,11 +1140,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#E2E8F0",
   },
-  modalTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: Brand.text,
-  },
+  modalCategoryText: { fontSize: 12, color: Brand.primary, fontWeight: "700", marginBottom: 2 },
+  modalTitle: { fontSize: 17, fontWeight: "700", color: Brand.text },
   modalLabel: {
     fontSize: 13,
     fontWeight: "600",
@@ -1070,6 +1160,14 @@ const styles = StyleSheet.create({
     minHeight: 80,
     textAlignVertical: "top",
   },
+  studentQuestionQuote: {
+    backgroundColor: "#F8FAFC",
+    padding: 12,
+    borderRadius: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: Brand.primary,
+  },
+  quoteText: { fontSize: 13, color: Brand.text, lineHeight: 18 },
   modalInput: {
     backgroundColor: "#F8FAFC",
     borderWidth: 1,
@@ -1080,11 +1178,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Brand.text,
   },
-  catPickerGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
+  catPickerGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   catOptionBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -1095,17 +1189,8 @@ const styles = StyleSheet.create({
     borderColor: "#E2E8F0",
     backgroundColor: "#FFFFFF",
   },
-  catOptionText: {
-    fontSize: 12,
-    color: Brand.textSecondary,
-    fontWeight: "600",
-  },
-  modalBtnRow: {
-    flexDirection: "row",
-    gap: 12,
-    marginTop: 24,
-    marginBottom: 20,
-  },
+  catOptionText: { fontSize: 12, color: Brand.textSecondary, fontWeight: "600" },
+  modalBtnRow: { flexDirection: "row", gap: 12, marginTop: 24, marginBottom: 20 },
   modalCancelBtn: {
     flex: 1,
     paddingVertical: 14,
@@ -1113,11 +1198,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F1F5F9",
     alignItems: "center",
   },
-  modalCancelText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: Brand.textSecondary,
-  },
+  modalCancelText: { fontSize: 14, fontWeight: "600", color: Brand.textSecondary },
   modalSaveBtn: {
     flex: 1.5,
     paddingVertical: 14,
@@ -1125,9 +1206,5 @@ const styles = StyleSheet.create({
     backgroundColor: Brand.primary,
     alignItems: "center",
   },
-  modalSaveText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#FFFFFF",
-  },
+  modalSaveText: { fontSize: 14, fontWeight: "700", color: "#FFFFFF" },
 });
