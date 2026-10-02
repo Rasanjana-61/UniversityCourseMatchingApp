@@ -98,6 +98,99 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+// GET admission requirements for a specific course
+router.get("/:id/admission", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [course] = await sql`
+      SELECT 
+        c.id,
+        c.name,
+        c.code,
+        c.stream,
+        c.degree_type,
+        c.duration_years,
+        c.min_z_score,
+        c.admission_requirements,
+        u.name as university_name,
+        u.short_name as university_short_name,
+        u.location as university_location
+      FROM courses c
+      JOIN universities u ON c.university_id = u.id
+      WHERE c.id = ${id};
+    `;
+
+    if (!course) {
+      return res.status(404).json({ success: false, message: "Course not found" });
+    }
+
+    // Default UGC Admission Criteria tailored to the stream & course
+    const stream = course.stream || "Physical Science";
+    let defaultSubjects = [
+      { type: "Core", name: "Combined Mathematics" },
+      { type: "Core", name: "Physics" },
+    ];
+    if (stream.toLowerCase().includes("bio")) {
+      defaultSubjects = [
+        { type: "Core", name: "Biology" },
+        { type: "Core", name: "Chemistry" },
+      ];
+    } else if (stream.toLowerCase().includes("commerce")) {
+      defaultSubjects = [
+        { type: "Core", name: "Accounting" },
+        { type: "Core", name: "Business Studies or Economics" },
+      ];
+    } else if (stream.toLowerCase().includes("tech")) {
+      defaultSubjects = [
+        { type: "Core", name: "Engineering Technology or Biosystems Tech" },
+        { type: "Core", name: "Science for Technology (SFT)" },
+      ];
+    } else if (stream.toLowerCase().includes("art")) {
+      defaultSubjects = [
+        { type: "Core", name: "Any 3 Arts subjects approved by UGC" },
+      ];
+    }
+
+    const requirements = {
+      courseName: course.name,
+      universityName: course.university_name,
+      stream: course.stream,
+      eligiblePill: "3 passes",
+      streamNote: "Admission is based on district Z-score ranking for the selected stream and required subjects.",
+      requiredSubjects: defaultSubjects,
+      subjectsNote: "Students must sit for the required subjects in one sitting to be eligible for selection.",
+      grades: {
+        min: "At least three passes",
+        recommended: "Stronger grades improve district Z-score ranking",
+        note: "Meeting the minimum grade requirement does not guarantee admission.",
+      },
+      selection: {
+        ranking: "Based on district Z-score ranking",
+        cutOff: "Final cut-off depends on the university intake and district competition",
+        note: "Admission is competitive and subject to the university's selection criteria.",
+      },
+      documents: {
+        required: "Certified copies of A/L results and NIC",
+        optional: "Additional certificates such as sports, leadership or extra-curricular achievements",
+        note: "Keep scanned copies ready before the application window opens.",
+      },
+      deadlines: {
+        results: "A/L results release",
+        applications: "Application window opens after results release",
+        note: "Keep track of the university's application timeline and document submission dates.",
+      },
+      ...(course.admission_requirements && Object.keys(course.admission_requirements).length > 0
+        ? course.admission_requirements
+        : {}),
+    };
+
+    res.status(200).json({ success: true, data: requirements });
+  } catch (error) {
+    console.error("Error fetching course admission requirements:", error);
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+});
+
 // POST create course
 router.post("/", async (req, res) => {
   try {
