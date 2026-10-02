@@ -25,6 +25,9 @@ import { CompareCoursesScreen } from '@/screens/CompareCoursesScreen';
 import { CourseComparisonScreen } from '@/screens/CourseComparisonScreen';
 import { ScholarshipsScreen } from '@/screens/ScholarshipsScreen';
 import { ScholarshipDetailsScreen } from '@/screens/ScholarshipDetailsScreen';
+import { AdmissionRequirementsScreen } from '@/screens/AdmissionRequirementsScreen';
+import { AdminLoginScreen } from '@/screens/AdminLoginScreen';
+import { AdminDashboardScreen } from '@/screens/AdminDashboardScreen';
 
 export default function AppEntry() {
   const { currentScreen } = useApp();
@@ -79,6 +82,18 @@ export default function AppEntry() {
         return <ScholarshipsScreen />;
       case 'scholarship-details':
         return <ScholarshipDetailsScreen />;
+      case 'admission-requirements':
+        return <AdmissionRequirementsScreen />;
+      case 'admin-login':
+      case 'admin-register':
+      case 'teacher-login':
+      case 'teacher-register':
+        return <AdminLoginScreen />;
+      case 'admin-dashboard':
+      case 'admin-questions':
+      case 'teacher-dashboard':
+      case 'teacher-students':
+        return <AdminDashboardScreen />;
       default:
         return <HomeScreen />;
     }
