@@ -393,6 +393,76 @@ export const api = {
     }
   },
 
+  // Inquiries / Messages APIs
+  createInquiry: async (data: {
+    studentEmail: string;
+    studentName?: string;
+    category: string;
+    subject: string;
+    message: string;
+  }) => {
+    try {
+      const res = await fetch(`${getApiUrl()}/inquiries`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      return await res.json();
+    } catch (error: any) {
+      return { success: false, message: "Could not submit inquiry. Check network." };
+    }
+  },
+
+  getMyInquiries: async (email: string) => {
+    try {
+      const res = await fetch(`${getApiUrl()}/inquiries/my?email=${encodeURIComponent(email)}`);
+      return await res.json();
+    } catch (error: any) {
+      return { success: false, message: "Error fetching your inquiries." };
+    }
+  },
+
+  getAdminInquiries: async (token: string, filters?: { status?: string; category?: string; search?: string }) => {
+    try {
+      const query = new URLSearchParams();
+      if (filters?.status) query.append("status", filters.status);
+      if (filters?.category) query.append("category", filters.category);
+      if (filters?.search) query.append("search", filters.search);
+      const url = `${getApiUrl()}/inquiries${query.toString() ? `?${query.toString()}` : ""}`;
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      return await res.json();
+    } catch (error: any) {
+      return { success: false, message: "Error fetching inquiries." };
+    }
+  },
+
+  replyToInquiry: async (token: string, id: number, reply: string, status: string = "Replied") => {
+    try {
+      const res = await fetch(`${getApiUrl()}/inquiries/${id}/reply`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ reply, status }),
+      });
+      return await res.json();
+    } catch (error: any) {
+      return { success: false, message: "Error sending reply." };
+    }
+  },
+
+  deleteInquiry: async (id: number) => {
+    try {
+      const res = await fetch(`${getApiUrl()}/inquiries/${id}`, {
+        method: "DELETE",
+      });
+      return await res.json();
+    } catch (error: any) {
+      return { success: false, message: "Error deleting inquiry." };
+    }
+  },
+
   // Backward compatibility aliases
   teacherRegister: async (data: any) => api.adminRegister(data),
   teacherLogin: async (creds: any) => api.adminLogin(creds),

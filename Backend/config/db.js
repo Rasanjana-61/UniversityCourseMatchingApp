@@ -153,6 +153,56 @@ export async function initDB() {
       console.log("Seeded default 10 assessment questions successfully!");
     }
 
+    // 8. Inquiries / Messages Table (Student Help Desk & Support)
+    await sql`
+      CREATE TABLE IF NOT EXISTS inquiries (
+        id SERIAL PRIMARY KEY,
+        student_email VARCHAR(255) NOT NULL,
+        student_name VARCHAR(255) DEFAULT 'Student',
+        category VARCHAR(100) NOT NULL, -- 'Admissions', 'Cutoffs', 'Scholarships', 'Technical'
+        subject VARCHAR(255) NOT NULL,
+        message TEXT NOT NULL,
+        status VARCHAR(50) DEFAULT 'Pending', -- 'Pending', 'Replied', 'Closed'
+        admin_reply TEXT DEFAULT '',
+        replied_at TIMESTAMP,
+        replied_by VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+
+    // Seed sample inquiries if table is empty
+    const inquiryCount = await sql`SELECT COUNT(*)::int as count FROM inquiries`;
+    if (inquiryCount[0].count === 0) {
+      await sql`
+        INSERT INTO inquiries (student_email, student_name, category, subject, message, status, admin_reply, replied_at, replied_by)
+        VALUES
+        (
+          'pramodrasanjana710@gmail.com',
+          'Pramod Rasanjana',
+          'Admissions',
+          'UGC University Entrance guide for Biological Science',
+          'Could you please clarify whether Chemistry B pass is mandatory for University of Peradeniya Dental Surgery?',
+          'Replied',
+          'Yes, Peradeniya Dental Surgery requires minimum B pass in Chemistry and Biology along with Physics pass according to UGC guidelines.',
+          CURRENT_TIMESTAMP,
+          'Admin'
+        ),
+        (
+          'pramodrasanjana710@gmail.com',
+          'Pramod Rasanjana',
+          'Scholarships',
+          'Mahapola and University Merit Stipends application deadline',
+          'When will the application period start for the Mahapola Higher Education Scholarship for the 2025/2026 intake?',
+          'Pending',
+          '',
+          NULL,
+          NULL
+        );
+      `;
+      console.log("Seeded sample student inquiries successfully!");
+    }
+
     // Seed sample scholarships if table is empty
     const scholarshipCount = await sql`SELECT COUNT(*)::int as count FROM scholarships`;
     if (scholarshipCount[0].count === 0) {
