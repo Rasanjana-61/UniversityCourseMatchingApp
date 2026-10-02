@@ -48,7 +48,7 @@ router.get("/:id", async (req, res) => {
 // POST create university
 router.post("/", async (req, res) => {
   try {
-    const { name, shortName, location, district, description, website, logoUrl } = req.body;
+    const { name, shortName, location, district, description, website, logoUrl, backgroundImageUrl } = req.body;
 
     if (!name || !shortName || !location || !district) {
       return res.status(400).json({
@@ -58,8 +58,8 @@ router.post("/", async (req, res) => {
     }
 
     const [created] = await sql`
-      INSERT INTO universities (name, short_name, location, district, description, website, logo_url)
-      VALUES (${name}, ${shortName}, ${location}, ${district}, ${description || null}, ${website || null}, ${logoUrl || null})
+      INSERT INTO universities (name, short_name, location, district, description, website, logo_url, background_image_url)
+      VALUES (${name}, ${shortName}, ${location}, ${district}, ${description || null}, ${website || null}, ${logoUrl || null}, ${backgroundImageUrl || null})
       RETURNING *;
     `;
 

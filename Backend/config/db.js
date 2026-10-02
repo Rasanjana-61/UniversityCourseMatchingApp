@@ -1,5 +1,6 @@
 import { neon } from "@neondatabase/serverless";
 import "dotenv/config";
+import { universityBanners } from "./university-banners.js";
 
 // Creates an HTTP-based serverless SQL connection using Neon DB URL
 export const sql = neon(process.env.DATABASE_URL);
@@ -19,8 +20,16 @@ export async function initDB() {
         description TEXT,
         website VARCHAR(255),
         logo_url TEXT,
+        background_image_url TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+    `;
+
+    // Preserve existing universities while adding optional image fields.
+    await sql`
+      ALTER TABLE universities
+        ADD COLUMN IF NOT EXISTS logo_url TEXT,
+        ADD COLUMN IF NOT EXISTS background_image_url TEXT;
     `;
 
     // 2. Courses Table
@@ -478,6 +487,16 @@ export async function initDB() {
       `;
 
       console.log("Comprehensive Sri Lanka Universities and Courses seed data inserted successfully!");
+    }
+
+    // Fill missing campus banners on both existing and freshly seeded databases.
+    for (const { shortName, imageUrl } of universityBanners) {
+      await sql`
+        UPDATE universities
+        SET background_image_url = ${imageUrl}
+        WHERE short_name = ${shortName}
+          AND (background_image_url IS NULL OR background_image_url = '');
+      `;
     }
 
     console.log("Neon Database initialized successfully!");

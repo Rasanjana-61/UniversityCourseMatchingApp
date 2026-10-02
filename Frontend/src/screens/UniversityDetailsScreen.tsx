@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -6,37 +6,51 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Image,
+  RefreshControl,
 } from "react-native";
+import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Brand } from "../constants/theme";
 import { useApp } from "../context/AppContext";
 import { api } from "../services/api";
+import { UniversityLogo } from "../components/UniversityLogo";
+import { useLiveRefresh } from "../hooks/use-live-refresh";
 
 export const UniversityDetailsScreen: React.FC = () => {
   const { setCurrentScreen, selectedUniversityId, setSelectedCourseId, toggleSave, isCourseSaved } = useApp();
-  const [university, setUniversity] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [details, setDetails] = useState<{ id: number | null; university: any }>({ id: null, university: null });
+  const [failedCoverUrl, setFailedCoverUrl] = useState<string | null>(null);
+  const [refreshRequest, setRefreshRequest] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const loading = selectedUniversityId !== null && details.id !== selectedUniversityId;
+  const university = selectedUniversityId !== null && details.id === selectedUniversityId ? details.university : null;
 
-  useEffect(() => {
-    if (selectedUniversityId) {
-      loadUniversityDetails();
+  const loadUniversityDetails = useCallback(async (signal: AbortSignal) => {
+    if (selectedUniversityId === null) return;
+    try {
+      const res = await api.getUniversityById(selectedUniversityId, signal);
+      if (!signal.aborted) {
+        setDetails({ id: selectedUniversityId, university: res?.success ? res.data : null });
+        setFailedCoverUrl(null);
+      }
+    } catch (e) {
+      if (!signal.aborted) {
+        console.error("Error fetching university details:", e);
+        // Keep the last loaded record during a temporary refresh failure.
+        setDetails((previous) => previous.id === selectedUniversityId
+          ? previous : { id: selectedUniversityId, university: null });
+      }
+    } finally {
+      if (!signal.aborted) setRefreshing(false);
     }
   }, [selectedUniversityId]);
 
-  const loadUniversityDetails = async () => {
-    try {
-      setLoading(true);
-      const res = await api.getUniversityById(selectedUniversityId!);
-      if (res && res.success) {
-        setUniversity(res.data);
-      }
-    } catch (e) {
-      console.error("Error fetching university details:", e);
-    } finally {
-      setLoading(false);
-    }
+  useLiveRefresh(loadUniversityDetails, true, refreshRequest);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    setRefreshRequest((request) => request + 1);
   };
 
   const handleCoursePress = (courseId: number) => {
@@ -74,20 +88,30 @@ export const UniversityDetailsScreen: React.FC = () => {
     );
   }
 
-  // Use a generic placeholder image or icon for university cover
-  const CoverPlaceholder = () => (
-    <View style={styles.coverPlaceholder}>
-      <Ionicons name="business" size={60} color="#CBD5E1" />
-    </View>
-  );
-
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Brand.primary} />}
+      >
         
         {/* Cover Section */}
         <View style={styles.coverSection}>
-          <CoverPlaceholder />
+          {university.background_image_url && failedCoverUrl !== university.background_image_url ? (
+            <Image
+              source={{ uri: university.background_image_url }}
+              style={StyleSheet.absoluteFill}
+              contentFit="cover"
+              contentPosition={{ left: "50%", top: "30%" }}
+              accessibilityLabel={`${university.name} campus`}
+              onError={() => setFailedCoverUrl(university.background_image_url)}
+            />
+          ) : (
+            <View style={styles.coverPlaceholder}>
+              <Ionicons name="business" size={60} color="#CBD5E1" />
+            </View>
+          )}
           
           {/* Absolute Back Button over Cover */}
           <View style={styles.absoluteHeader}>
@@ -95,12 +119,28 @@ export const UniversityDetailsScreen: React.FC = () => {
               <Ionicons name="arrow-back" size={20} color={Brand.text} />
             </TouchableOpacity>
           </View>
+          <View style={styles.absoluteRefresh}>
+            <TouchableOpacity
+              style={styles.backButtonCircle}
+              onPress={onRefresh}
+              disabled={refreshing}
+              accessibilityLabel="Refresh university details"
+            >
+              {refreshing ? <ActivityIndicator size="small" color={Brand.primary} /> :
+                <Ionicons name="refresh" size={20} color={Brand.text} />}
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Info Header */}
         <View style={styles.infoContainer}>
           <View style={styles.logoWrap}>
-            <Text style={styles.logoText}>{university.short_name}</Text>
+            <UniversityLogo
+              name={university.name}
+              shortName={university.short_name}
+              logoUrl={university.logo_url}
+              textStyle={styles.logoText}
+            />
           </View>
           
           <Text style={styles.univName}>{university.name}</Text>
@@ -254,8 +294,14 @@ const styles = StyleSheet.create({
   scrollContent: { paddingBottom: 40 },
   
   coverSection: {
-    height: 200,
+    width: "100%",
+    aspectRatio: 16 / 7,
+    minHeight: 220,
+    maxHeight: 420,
+    flexShrink: 0,
     position: "relative",
+    overflow: "hidden",
+    backgroundColor: "#E2E8F0",
   },
   coverPlaceholder: {
     flex: 1,
@@ -267,6 +313,12 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 16,
     left: 20,
+    zIndex: 10,
+  },
+  absoluteRefresh: {
+    position: "absolute",
+    top: 16,
+    right: 20,
     zIndex: 10,
   },
   backButtonCircle: {

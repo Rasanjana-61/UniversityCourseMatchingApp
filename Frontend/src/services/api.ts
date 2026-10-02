@@ -25,13 +25,13 @@ export const api = {
   },
 
   // Universities
-  getUniversities: async () => {
-    const res = await fetch(`${getApiUrl()}/universities`);
+  getUniversities: async (signal?: AbortSignal) => {
+    const res = await fetch(`${getApiUrl()}/universities`, { cache: "no-store", signal });
     return res.json();
   },
 
-  getUniversityById: async (id: number | string) => {
-    const res = await fetch(`${getApiUrl()}/universities/${id}`);
+  getUniversityById: async (id: number | string, signal?: AbortSignal) => {
+    const res = await fetch(`${getApiUrl()}/universities/${id}`, { cache: "no-store", signal });
     return res.json();
   },
 

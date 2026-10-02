@@ -15,6 +15,8 @@ import { Brand } from "../constants/theme";
 import { useApp } from "../context/AppContext";
 import { api } from "../services/api";
 import { BottomNavBar } from "../components/BottomNavBar";
+import { UniversityLogo } from "../components/UniversityLogo";
+import { useLiveRefresh } from "../hooks/use-live-refresh";
 
 const STREAM_FILTERS = [
   "All",
@@ -37,6 +39,12 @@ export const ExploreScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("universities");
   const [expandedUniv, setExpandedUniv] = useState<number | null>(null);
+
+  const refreshUniversities = useCallback(async (signal: AbortSignal) => {
+    const res = await api.getUniversities(signal);
+    if (!signal.aborted && res?.success) setUniversities(res.data);
+  }, []);
+  useLiveRefresh(refreshUniversities);
 
   const loadData = useCallback(async (isRefresh = false) => {
     if (!isRefresh) setLoading(true);
@@ -283,7 +291,12 @@ export const ExploreScreen: React.FC = () => {
                       activeOpacity={0.8}
                     >
                       <View style={styles.univIconBox}>
-                        <Text style={styles.univShortText}>{u.short_name}</Text>
+                        <UniversityLogo
+                          name={u.name}
+                          shortName={u.short_name}
+                          logoUrl={u.logo_url}
+                          textStyle={styles.univShortText}
+                        />
                       </View>
                       <View style={styles.univInfo}>
                         <Text style={styles.univName}>{u.name}</Text>
