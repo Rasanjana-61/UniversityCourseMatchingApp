@@ -195,6 +195,16 @@ export const ProfileScreen: React.FC = () => {
           <Text style={styles.editButtonText}>Edit Profile</Text>
         </TouchableOpacity>
 
+        {/* Help & Support / Messages Button */}
+        <TouchableOpacity
+          style={styles.helpButton}
+          onPress={() => setCurrentScreen("student-inquiries")}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="chatbubbles-outline" size={18} color={Brand.primary} style={{ marginRight: 6 }} />
+          <Text style={styles.helpButtonText}>Help & Support Desk (Inquiries)</Text>
+        </TouchableOpacity>
+
         {/* Log Out Button */}
         <TouchableOpacity
           style={styles.logoutButton}
@@ -389,6 +399,22 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "600",
+  },
+  helpButton: {
+    flexDirection: "row",
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1.5,
+    borderColor: "#BFDBFE",
+    height: 48,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  helpButtonText: {
+    color: Brand.primary,
+    fontSize: 15,
+    fontWeight: "700",
   },
   logoutButton: {
     flexDirection: "row",
