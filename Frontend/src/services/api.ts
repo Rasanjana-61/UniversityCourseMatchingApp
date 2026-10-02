@@ -48,6 +48,15 @@ export const api = {
     return res.json();
   },
 
+  getCourseAdmissionRequirements: async (id: number | string) => {
+    try {
+      const res = await fetch(`${getApiUrl()}/courses/${id}/admission`);
+      return await res.json();
+    } catch (e) {
+      return { success: false, message: "Error fetching admission requirements" };
+    }
+  },
+
   // Smart Matching
   matchCourses: async (data: {
     stream: string;
@@ -273,4 +282,120 @@ export const api = {
       return { success: false, message: "Error fetching scholarship details" };
     }
   },
+
+  // Admin APIs
+  adminRegister: async (data: { fullName: string; email: string; password: string; school?: string; subject?: string }) => {
+    try {
+      const res = await fetch(`${getApiUrl()}/admin/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      return await res.json();
+    } catch (error: any) {
+      return { success: false, message: "Cannot connect to server. Please try again." };
+    }
+  },
+
+  adminLogin: async (credentials: { email: string; password: string }) => {
+    try {
+      const res = await fetch(`${getApiUrl()}/admin/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(credentials),
+      });
+      return await res.json();
+    } catch (error: any) {
+      return { success: false, message: "Cannot connect to server. Please try again." };
+    }
+  },
+
+  getAdminDashboard: async (token: string) => {
+    try {
+      const res = await fetch(`${getApiUrl()}/admin/dashboard`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return await res.json();
+    } catch (error: any) {
+      return { success: false, message: "Error fetching dashboard data." };
+    }
+  },
+
+  getAdminStudents: async (token: string, filters?: { stream?: string; district?: string; search?: string }) => {
+    try {
+      const query = new URLSearchParams();
+      if (filters?.stream) query.append("stream", filters.stream);
+      if (filters?.district) query.append("district", filters.district);
+      if (filters?.search) query.append("search", filters.search);
+      const url = `${getApiUrl()}/admin/students${query.toString() ? `?${query.toString()}` : ""}`;
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      return await res.json();
+    } catch (error: any) {
+      return { success: false, message: "Error fetching students." };
+    }
+  },
+
+  // Assessment Questions CRUD
+  getQuestions: async () => {
+    try {
+      const res = await fetch(`${getApiUrl()}/admin/questions`);
+      return await res.json();
+    } catch (error: any) {
+      return { success: false, message: "Error fetching questions." };
+    }
+  },
+
+  createQuestion: async (token: string, data: { text: string; category: string; sortOrder?: number }) => {
+    try {
+      const res = await fetch(`${getApiUrl()}/admin/questions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(data),
+      });
+      return await res.json();
+    } catch (error: any) {
+      return { success: false, message: "Error adding question." };
+    }
+  },
+
+  updateQuestion: async (
+    token: string,
+    id: number,
+    data: { text: string; category: string; sortOrder?: number; isActive?: boolean }
+  ) => {
+    try {
+      const res = await fetch(`${getApiUrl()}/admin/questions/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(data),
+      });
+      return await res.json();
+    } catch (error: any) {
+      return { success: false, message: "Error updating question." };
+    }
+  },
+
+  deleteQuestion: async (token: string, id: number) => {
+    try {
+      const res = await fetch(`${getApiUrl()}/admin/questions/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return await res.json();
+    } catch (error: any) {
+      return { success: false, message: "Error deleting question." };
+    }
+  },
+
+  // Backward compatibility aliases
+  teacherRegister: async (data: any) => api.adminRegister(data),
+  teacherLogin: async (creds: any) => api.adminLogin(creds),
+  getTeacherDashboard: async (tok: string) => api.getAdminDashboard(tok),
+  getTeacherStudents: async (tok: string, filt: any) => api.getAdminStudents(tok, filt),
 };

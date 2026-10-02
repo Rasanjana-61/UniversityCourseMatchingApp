@@ -185,8 +185,17 @@ export const CourseDetailsScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* Feature Action Buttons: Career Details & Compare */}
+        {/* Feature Action Buttons: Admission Requirements, Career Details & Compare */}
         <View style={styles.actionButtonsContainer}>
+          <TouchableOpacity
+            style={styles.admissionActionButton}
+            onPress={() => setCurrentScreen("admission-requirements")}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="document-text" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+            <Text style={styles.admissionActionButtonText}>View Admission Requirements</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={styles.primaryActionButton}
             onPress={() => setCurrentScreen("career-details")}
@@ -391,6 +400,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginTop: 20,
     gap: 12,
+  },
+  admissionActionButton: {
+    backgroundColor: "#1D4ED8",
+    flexDirection: "row",
+    height: 48,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#1D4ED8",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  admissionActionButtonText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "700",
   },
   primaryActionButton: {
     backgroundColor: Brand.primary,

@@ -1,12 +1,13 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Brand } from "../constants/theme";
 import { useApp } from "../context/AppContext";
 import { BottomNavBar } from "../components/BottomNavBar";
+import { api } from "../services/api";
 
-const QUESTIONS = [
+const DEFAULT_QUESTIONS = [
   { id: 1, text: "I enjoy solving problems using technology.", category: "Technology" },
   { id: 2, text: "I like taking leadership roles and organizing people.", category: "Business" },
   { id: 3, text: "I enjoy expressing my ideas through art, writing, or design.", category: "Creative" },
@@ -28,33 +29,53 @@ const OPTIONS = [
 
 export const AssessmentQuestionsScreen: React.FC = () => {
   const { setCurrentScreen, setAssessmentScores } = useApp();
+  const [questions, setQuestions] = useState<any[]>(DEFAULT_QUESTIONS);
+  const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
+
+  useEffect(() => {
+    const fetchQuestions = async () => {
+      try {
+        const res = await api.getQuestions();
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+          setQuestions(res.data);
+        }
+      } catch (e) {
+        console.log("Error loading assessment questions:", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchQuestions();
+  }, []);
 
   const handleOptionPress = (value: number) => {
     const newAnswers = { ...answers, [currentIndex]: value };
     setAnswers(newAnswers);
 
-    if (currentIndex < QUESTIONS.length - 1) {
+    if (currentIndex < questions.length - 1) {
       setTimeout(() => setCurrentIndex(currentIndex + 1), 150);
     } else {
       // Calculate scores
       const scores = { Technology: 0, Business: 0, Creative: 0, Social: 0 };
       const maxPossible = { Technology: 0, Business: 0, Creative: 0, Social: 0 };
 
-      QUESTIONS.forEach((q, index) => {
-        const cat = q.category as keyof typeof scores;
+      questions.forEach((q, index) => {
+        const cat = (q.category || "Technology") as keyof typeof scores;
         const val = newAnswers[index] || 0;
-        scores[cat] += val;
-        maxPossible[cat] += 3;
+        if (scores[cat] !== undefined) {
+          scores[cat] += val;
+          maxPossible[cat] += 3;
+        }
       });
 
       // Calculate percentages
       const percentages = {
-        Technology: Math.round((scores.Technology / maxPossible.Technology) * 100) || 10,
-        Business: Math.round((scores.Business / maxPossible.Business) * 100) || 10,
-        Creative: Math.round((scores.Creative / maxPossible.Creative) * 100) || 10,
-        Social: Math.round((scores.Social / maxPossible.Social) * 100) || 10,
+        Technology: maxPossible.Technology > 0 ? Math.round((scores.Technology / maxPossible.Technology) * 100) : 50,
+        Business: maxPossible.Business > 0 ? Math.round((scores.Business / maxPossible.Business) * 100) : 50,
+        Creative: maxPossible.Creative > 0 ? Math.round((scores.Creative / maxPossible.Creative) * 100) : 50,
+        Social: maxPossible.Social > 0 ? Math.round((scores.Social / maxPossible.Social) * 100) : 50,
       };
 
       setAssessmentScores(percentages);
@@ -70,8 +91,8 @@ export const AssessmentQuestionsScreen: React.FC = () => {
     }
   };
 
-  const currentQuestion = QUESTIONS[currentIndex];
-  const progressPercent = ((currentIndex) / QUESTIONS.length) * 100;
+  const currentQuestion = questions[currentIndex] || DEFAULT_QUESTIONS[0];
+  const progressPercent = questions.length > 0 ? ((currentIndex) / questions.length) * 100 : 0;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
@@ -81,7 +102,7 @@ export const AssessmentQuestionsScreen: React.FC = () => {
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <View style={styles.headerTextWrap}>
-          <Text style={styles.headerTitle}>Question {currentIndex + 1} of {QUESTIONS.length}</Text>
+          <Text style={styles.headerTitle}>Question {currentIndex + 1} of {questions.length}</Text>
           <View style={styles.progressWrap}>
             <View style={styles.progressBarBg}>
               <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />

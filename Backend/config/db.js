@@ -37,9 +37,13 @@ export async function initDB() {
         district_cutoffs JSONB DEFAULT '{}'::jsonb,
         description TEXT,
         career_paths TEXT[] DEFAULT ARRAY[]::TEXT[],
+        admission_requirements JSONB DEFAULT '{}'::jsonb,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `;
+
+    // Ensure columns exist on courses if table was created previously
+    await sql`ALTER TABLE courses ADD COLUMN IF NOT EXISTS admission_requirements JSONB DEFAULT '{}'::jsonb;`;
 
     // 3. Student Profiles Table
     await sql`
@@ -101,6 +105,53 @@ export async function initDB() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `;
+
+    // 6. Admin / Teachers Table
+    await sql`
+      CREATE TABLE IF NOT EXISTS teachers (
+        id SERIAL PRIMARY KEY,
+        full_name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        school VARCHAR(255) DEFAULT '',
+        subject VARCHAR(255) DEFAULT '',
+        role VARCHAR(50) DEFAULT 'admin',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+
+    // 7. Assessment Questions Table (Managed via Admin Panel CRUD)
+    await sql`
+      CREATE TABLE IF NOT EXISTS assessment_questions (
+        id SERIAL PRIMARY KEY,
+        text TEXT NOT NULL,
+        category VARCHAR(100) NOT NULL, -- Technology, Business, Creative, Social
+        sort_order INT DEFAULT 1,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+
+    // Seed default 10 assessment questions if empty
+    const questionCount = await sql`SELECT COUNT(*)::int as count FROM assessment_questions`;
+    if (questionCount[0].count === 0) {
+      await sql`
+        INSERT INTO assessment_questions (text, category, sort_order)
+        VALUES
+        ('I enjoy solving problems using technology.', 'Technology', 1),
+        ('I like taking leadership roles and organizing people.', 'Business', 2),
+        ('I enjoy expressing my ideas through art, writing, or design.', 'Creative', 3),
+        ('I feel fulfilled when I help others learn or solve personal problems.', 'Social', 4),
+        ('I find coding or learning how computer systems work fascinating.', 'Technology', 5),
+        ('I am interested in how businesses make money and grow.', 'Business', 6),
+        ('I often come up with original and out-of-the-box ideas.', 'Creative', 7),
+        ('I enjoy working in teams and collaborating with others.', 'Social', 8),
+        ('I like analyzing data and numbers to find trends.', 'Technology', 9),
+        ('I would like a career where I negotiate and pitch ideas.', 'Business', 10);
+      `;
+      console.log("Seeded default 10 assessment questions successfully!");
+    }
 
     // Seed sample scholarships if table is empty
     const scholarshipCount = await sql`SELECT COUNT(*)::int as count FROM scholarships`;

@@ -9,6 +9,8 @@ import studentsRoute from "./routes/studentsRoute.js";
 import matchingRoute from "./routes/matchingRoute.js";
 import authRoute from "./routes/authRoute.js";
 import scholarshipsRoute from "./routes/scholarshipsRoute.js";
+import teachersRoute from "./routes/teachersRoute.js";
+import adminRoute from "./routes/adminRoute.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -39,6 +41,8 @@ app.use("/api/courses", coursesRoute);
 app.use("/api/students", studentsRoute);
 app.use("/api/match", matchingRoute);
 app.use("/api/scholarships", scholarshipsRoute);
+app.use("/api/teachers", teachersRoute);
+app.use("/api/admin", adminRoute);
 
 // 404 Handler
 app.use((req, res) => {
