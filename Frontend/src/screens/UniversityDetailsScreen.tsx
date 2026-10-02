@@ -207,6 +207,14 @@ export const UniversityDetailsScreen: React.FC = () => {
         <View style={styles.bottomActions}>
           <TouchableOpacity
             style={styles.admissionBtn}
+            onPress={() => setCurrentScreen("admission-requirements")}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.admissionBtnText}>View Admission Information</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.admissionBtn, { backgroundColor: "#0284C7" }]}
             onPress={() => setCurrentScreen("scholarships")}
             activeOpacity={0.85}
           >
