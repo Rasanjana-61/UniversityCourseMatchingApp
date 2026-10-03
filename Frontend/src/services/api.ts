@@ -35,10 +35,75 @@ export const api = {
     return res.json();
   },
 
+  createUniversity: async (data: {
+    name: string;
+    shortName: string;
+    location: string;
+    district: string;
+    description?: string;
+    website?: string;
+    logoUrl?: string;
+    backgroundImageUrl?: string;
+  }) => {
+    try {
+      const res = await fetch(`${getApiUrl()}/universities`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      return await res.json();
+    } catch (e: any) {
+      return { success: false, message: "Error creating university: " + e.message };
+    }
+  },
+
+  updateUniversity: async (
+    id: number | string,
+    data: {
+      name: string;
+      shortName: string;
+      location: string;
+      district: string;
+      description?: string;
+      website?: string;
+      logoUrl?: string;
+      backgroundImageUrl?: string;
+    }
+  ) => {
+    try {
+      const res = await fetch(`${getApiUrl()}/universities/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      return await res.json();
+    } catch (e: any) {
+      return { success: false, message: "Error updating university: " + e.message };
+    }
+  },
+
+  deleteUniversity: async (id: number | string) => {
+    try {
+      const res = await fetch(`${getApiUrl()}/universities/${id}`, {
+        method: "DELETE",
+      });
+      return await res.json();
+    } catch (e: any) {
+      return { success: false, message: "Error deleting university: " + e.message };
+    }
+  },
+
   // Courses
   getCourses: async (params?: { stream?: string; search?: string }) => {
-    const query = new URLSearchParams(params as Record<string, string>).toString();
-    const url = `${getApiUrl()}/courses${query ? `?${query}` : ""}`;
+    const query = new URLSearchParams();
+    if (params?.stream && params.stream !== "All" && params.stream !== "undefined" && params.stream !== "null") {
+      query.append("stream", params.stream.trim());
+    }
+    if (params?.search && params.search.trim() && params.search !== "undefined" && params.search !== "null") {
+      query.append("search", params.search.trim());
+    }
+    const qs = query.toString();
+    const url = `${getApiUrl()}/courses${qs ? `?${qs}` : ""}`;
     const res = await fetch(url);
     return res.json();
   },
@@ -54,6 +119,68 @@ export const api = {
       return await res.json();
     } catch (e) {
       return { success: false, message: "Error fetching admission requirements" };
+    }
+  },
+
+  createCourse: async (data: {
+    universityId: number | string;
+    name: string;
+    code: string;
+    stream: string;
+    degreeType: string;
+    durationYears?: number;
+    minZScore?: number;
+    districtCutoffs?: Record<string, number>;
+    description?: string;
+    careerPaths?: string[];
+  }) => {
+    try {
+      const res = await fetch(`${getApiUrl()}/courses`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      return await res.json();
+    } catch (e: any) {
+      return { success: false, message: "Error creating course: " + e.message };
+    }
+  },
+
+  updateCourse: async (
+    id: number | string,
+    data: {
+      universityId: number | string;
+      name: string;
+      code: string;
+      stream: string;
+      degreeType: string;
+      durationYears?: number;
+      minZScore?: number;
+      districtCutoffs?: Record<string, number>;
+      description?: string;
+      careerPaths?: string[];
+    }
+  ) => {
+    try {
+      const res = await fetch(`${getApiUrl()}/courses/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      return await res.json();
+    } catch (e: any) {
+      return { success: false, message: "Error updating course: " + e.message };
+    }
+  },
+
+  deleteCourse: async (id: number | string) => {
+    try {
+      const res = await fetch(`${getApiUrl()}/courses/${id}`, {
+        method: "DELETE",
+      });
+      return await res.json();
+    } catch (e: any) {
+      return { success: false, message: "Error deleting course: " + e.message };
     }
   },
 
