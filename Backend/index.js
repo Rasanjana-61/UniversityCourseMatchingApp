@@ -57,15 +57,27 @@ app.use((err, req, res, next) => {
   res.status(500).json({ success: false, message: "Internal server error", error: err.message });
 });
 
-// Initialize Neon Database and Start Express Server
-initDB()
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log(`🚀 Server is up and running on port http://localhost:${PORT}`);
-      console.log(`📡 Health Check: http://localhost:${PORT}/api/health`);
-    });
-  })
-  .catch((err) => {
-    console.error("Failed to connect to Neon Database:", err);
-    process.exit(1);
-  });
+// Start Express Server and Initialize Neon Database
+app.listen(PORT, () => {
+  console.log(`🚀 Server is up and running on port http://localhost:${PORT}`);
+  console.log(`📡 Health Check: http://localhost:${PORT}/api/health`);
+});
+
+async function startDBWithRetry(retries = 5, delay = 2000) {
+  for (let i = 1; i <= retries; i++) {
+    try {
+      await initDB();
+      return;
+    } catch (err) {
+      console.warn(`[Neon DB] Connection attempt ${i}/${retries} failed:`, err.message);
+      if (i < retries) {
+        await new Promise((res) => setTimeout(res, delay));
+      } else {
+        console.error("Failed to connect to Neon Database after all retries.");
+      }
+    }
+  }
+}
+
+startDBWithRetry();
+
