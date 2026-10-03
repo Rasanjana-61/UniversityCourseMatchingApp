@@ -17,7 +17,7 @@ import { Brand } from "../constants/theme";
 import { useApp } from "../context/AppContext";
 import { api } from "../services/api";
 
-type AdminTab = "universities" | "courses" | "questions" | "inquiries" | "students" | "overview";
+type AdminTab = "universities" | "courses" | "scholarships" | "questions" | "inquiries" | "students" | "overview";
 
 const sriLankanDistricts = [
   "Colombo", "Gampaha", "Kalutara", "Kandy", "Matale", "Nuwara Eliya",
@@ -45,6 +45,13 @@ const degreeTypesList = [
   "LLB",
   "BBA",
   "B.Eng"
+];
+
+const scholarshipCategoriesList = [
+  "University",
+  "Merit",
+  "Need-based",
+  "Corporate"
 ];
 
 export const AdminDashboardScreen: React.FC = () => {
@@ -85,6 +92,27 @@ export const AdminDashboardScreen: React.FC = () => {
   const [courseDescription, setCourseDescription] = useState("");
   const [courseCareerPaths, setCourseCareerPaths] = useState("");
   const [savingCourse, setSavingCourse] = useState(false);
+
+  // --- Scholarships state ---
+  const [scholarships, setScholarships] = useState<any[]>([]);
+  const [scholarshipsLoading, setScholarshipsLoading] = useState(false);
+  const [scholarshipSearch, setScholarshipSearch] = useState("");
+  const [scholarshipCategoryFilter, setScholarshipCategoryFilter] = useState("");
+  const [scholarshipModalVisible, setScholarshipModalVisible] = useState(false);
+  const [editingScholarship, setEditingScholarship] = useState<any | null>(null);
+  const [schTitle, setSchTitle] = useState("");
+  const [schCategory, setSchCategory] = useState("University");
+  const [schProvider, setSchProvider] = useState("");
+  const [schEligibility, setSchEligibility] = useState("");
+  const [schValue, setSchValue] = useState("");
+  const [schDeadline, setSchDeadline] = useState("");
+  const [schStatus, setSchStatus] = useState("Open");
+  const [schDescription, setSchDescription] = useState("");
+  const [schBenefits, setSchBenefits] = useState("");
+  const [schRequirements, setSchRequirements] = useState("");
+  const [schApplicationInstructions, setSchApplicationInstructions] = useState("");
+  const [schOfficialSourceUrl, setSchOfficialSourceUrl] = useState("");
+  const [savingScholarship, setSavingScholarship] = useState(false);
 
   // --- Questions state ---
   const [questions, setQuestions] = useState<any[]>([]);
@@ -149,6 +177,23 @@ export const AdminDashboardScreen: React.FC = () => {
     }
   }, [courseStreamFilter, courseSearch]);
 
+  const loadScholarships = useCallback(async () => {
+    setScholarshipsLoading(true);
+    try {
+      const res = await api.getScholarships({
+        category: scholarshipCategoryFilter || undefined,
+        search: scholarshipSearch || undefined,
+      });
+      if (res && res.data) {
+        setScholarships(res.data || []);
+      }
+    } catch (e) {
+      console.log("Error loading scholarships:", e);
+    } finally {
+      setScholarshipsLoading(false);
+    }
+  }, [scholarshipCategoryFilter, scholarshipSearch]);
+
   const loadQuestions = useCallback(async () => {
     setQuestionsLoading(true);
     try {
@@ -205,13 +250,14 @@ export const AdminDashboardScreen: React.FC = () => {
     await Promise.all([
       loadUniversities(),
       loadCourses(),
+      loadScholarships(),
       loadQuestions(),
       loadInquiries(),
       loadOverview(),
       loadStudents(),
     ]);
     setLoading(false);
-  }, [loadUniversities, loadCourses, loadQuestions, loadInquiries, loadOverview, loadStudents]);
+  }, [loadUniversities, loadCourses, loadScholarships, loadQuestions, loadInquiries, loadOverview, loadStudents]);
 
   useEffect(() => {
     loadAll();
@@ -220,9 +266,10 @@ export const AdminDashboardScreen: React.FC = () => {
   useEffect(() => {
     if (activeTab === "universities") loadUniversities();
     if (activeTab === "courses") loadCourses();
+    if (activeTab === "scholarships") loadScholarships();
     if (activeTab === "students") loadStudents();
     if (activeTab === "inquiries") loadInquiries();
-  }, [activeTab, courseStreamFilter, courseSearch, filterStream, searchStudent, inquiryStatusFilter, inquirySearch]);
+  }, [activeTab, courseStreamFilter, courseSearch, scholarshipCategoryFilter, scholarshipSearch, filterStream, searchStudent, inquiryStatusFilter, inquirySearch]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -454,6 +501,133 @@ export const AdminDashboardScreen: React.FC = () => {
     );
   };
 
+  // --- Scholarships CRUD Handlers ---
+  const openCreateScholarshipModal = () => {
+    setEditingScholarship(null);
+    setSchTitle("");
+    setSchCategory("University");
+    setSchProvider("");
+    setSchEligibility("");
+    setSchValue("");
+    setSchDeadline("");
+    setSchStatus("Open");
+    setSchDescription("");
+    setSchBenefits("");
+    setSchRequirements("");
+    setSchApplicationInstructions("");
+    setSchOfficialSourceUrl("");
+    setScholarshipModalVisible(true);
+  };
+
+  const openEditScholarshipModal = (s: any) => {
+    setEditingScholarship(s);
+    setSchTitle(s.title || "");
+    setSchCategory(s.category || "University");
+    setSchProvider(s.provider || "");
+    setSchEligibility(s.eligibility || "");
+    setSchValue(s.value || "");
+    setSchDeadline(s.deadline || "");
+    setSchStatus(s.status || "Open");
+    setSchDescription(s.description || "");
+    setSchBenefits(s.benefits || "");
+    setSchRequirements(s.requirements || "");
+    setSchApplicationInstructions(s.application_instructions || "");
+    setSchOfficialSourceUrl(s.official_source_url || "");
+    setScholarshipModalVisible(true);
+  };
+
+  const handleSaveScholarship = async () => {
+    if (!schTitle.trim()) {
+      Alert.alert("Required", "Please enter scholarship title.");
+      return;
+    }
+    if (!schProvider.trim()) {
+      Alert.alert("Required", "Please enter scholarship provider.");
+      return;
+    }
+    if (!schEligibility.trim()) {
+      Alert.alert("Required", "Please enter eligibility criteria.");
+      return;
+    }
+    if (!schValue.trim()) {
+      Alert.alert("Required", "Please enter financial value/coverage.");
+      return;
+    }
+    if (!schDeadline.trim()) {
+      Alert.alert("Required", "Please enter application deadline.");
+      return;
+    }
+
+    setSavingScholarship(true);
+    try {
+      const payload = {
+        title: schTitle.trim(),
+        category: schCategory,
+        provider: schProvider.trim(),
+        eligibility: schEligibility.trim(),
+        value: schValue.trim(),
+        deadline: schDeadline.trim(),
+        status: schStatus,
+        description: schDescription.trim(),
+        benefits: schBenefits.trim(),
+        requirements: schRequirements.trim(),
+        applicationInstructions: schApplicationInstructions.trim(),
+        officialSourceUrl: schOfficialSourceUrl.trim(),
+      };
+
+      if (editingScholarship) {
+        const res = await api.updateScholarship(editingScholarship.id, payload);
+        if (res && res.success) {
+          Alert.alert("Success", "Scholarship updated successfully!");
+          setScholarshipModalVisible(false);
+          loadScholarships();
+        } else {
+          Alert.alert("Error", res?.message || "Failed to update scholarship.");
+        }
+      } else {
+        const res = await api.createScholarship(payload);
+        if (res && res.success) {
+          Alert.alert("Success", "New scholarship published successfully!");
+          setScholarshipModalVisible(false);
+          loadScholarships();
+        } else {
+          Alert.alert("Error", res?.message || "Failed to create scholarship.");
+        }
+      }
+    } catch (e: any) {
+      Alert.alert("Error", e.message || "Network error occurred.");
+    } finally {
+      setSavingScholarship(false);
+    }
+  };
+
+  const handleDeleteScholarship = (id: number, title: string) => {
+    Alert.alert(
+      "Delete Scholarship",
+      `Are you sure you want to delete scholarship "${title}"?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const res = await api.deleteScholarship(id);
+              if (res && res.success) {
+                Alert.alert("Deleted", "Scholarship removed successfully.");
+                loadScholarships();
+              } else {
+                Alert.alert("Error", res?.message || "Failed to delete scholarship.");
+              }
+            } catch (e: any) {
+              Alert.alert("Error", e.message || "Network request failed.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
   // --- Questions Handlers ---
   const openCreateModal = () => {
     setEditingQuestion(null);
@@ -626,6 +800,19 @@ export const AdminDashboardScreen: React.FC = () => {
     return Brand.primary;
   };
 
+  const getScholarshipCatColor = (cat: string) => {
+    switch (cat?.toLowerCase()) {
+      case "university":
+        return "#1D4ED8";
+      case "merit":
+        return "#059669";
+      case "need-based":
+        return "#D97706";
+      default:
+        return "#7C3AED";
+    }
+  };
+
   const getInquiryStatusBadge = (status: string) => {
     switch (status) {
       case "Replied":
@@ -704,6 +891,20 @@ export const AdminDashboardScreen: React.FC = () => {
             />
             <Text style={[styles.tabItemText, activeTab === "courses" && styles.tabItemTextActive]}>
               Courses ({courses.length})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabItem, activeTab === "scholarships" && styles.tabItemActive]}
+            onPress={() => setActiveTab("scholarships")}
+          >
+            <Ionicons
+              name="ribbon-outline"
+              size={15}
+              color={activeTab === "scholarships" ? "#FFFFFF" : Brand.textMuted}
+            />
+            <Text style={[styles.tabItemText, activeTab === "scholarships" && styles.tabItemTextActive]}>
+              Scholarships ({scholarships.length})
             </Text>
           </TouchableOpacity>
 
@@ -1006,7 +1207,123 @@ export const AdminDashboardScreen: React.FC = () => {
             </View>
           )}
 
-          {/* ═══════════ TAB 3: QUESTIONS CRUD ═══════════ */}
+          {/* ═══════════ TAB 3: SCHOLARSHIPS CRUD ═══════════ */}
+          {activeTab === "scholarships" && (
+            <View style={styles.tabContent}>
+              <View style={styles.actionBanner}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.bannerHeading}>Scholarships Management</Text>
+                  <Text style={styles.bannerSub}>
+                    Manage grants, merit awards, and university scholarships.
+                  </Text>
+                </View>
+
+                <TouchableOpacity style={styles.addBtn} onPress={openCreateScholarshipModal}>
+                  <Ionicons name="add-circle" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                  <Text style={styles.addBtnText}>Add Scholarship</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Scholarship Search */}
+              <View style={styles.searchBox}>
+                <Ionicons name="search" size={18} color={Brand.textMuted} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search scholarships by title, provider, eligibility..."
+                  placeholderTextColor={Brand.textMuted}
+                  value={scholarshipSearch}
+                  onChangeText={setScholarshipSearch}
+                />
+                {scholarshipSearch ? (
+                  <TouchableOpacity onPress={() => setScholarshipSearch("")}>
+                    <Ionicons name="close-circle" size={18} color={Brand.textMuted} />
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+
+              {/* Category Filter Pills */}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.streamFilterScroll}>
+                {["", ...scholarshipCategoriesList].map((cat) => (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[styles.streamPill, scholarshipCategoryFilter === cat && styles.streamPillActive]}
+                    onPress={() => setScholarshipCategoryFilter(cat)}
+                  >
+                    <Text style={[styles.streamPillText, scholarshipCategoryFilter === cat && styles.streamPillTextActive]}>
+                      {cat || "All Categories"}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              {scholarshipsLoading ? (
+                <ActivityIndicator color={Brand.primary} style={{ marginTop: 24 }} />
+              ) : scholarships.length === 0 ? (
+                <View style={styles.emptyCard}>
+                  <Ionicons name="ribbon-outline" size={48} color={Brand.textMuted} />
+                  <Text style={styles.emptyTitle}>No Scholarships Found</Text>
+                  <Text style={styles.emptySub}>Click the 'Add Scholarship' button above to post an award.</Text>
+                </View>
+              ) : (
+                scholarships.map((sch) => {
+                  const catColor = getScholarshipCatColor(sch.category);
+                  return (
+                    <View key={sch.id} style={styles.card}>
+                      <View style={styles.cardTopRow}>
+                        <View style={[styles.categoryBadge, { backgroundColor: `${catColor}15` }]}>
+                          <View style={[styles.catDot, { backgroundColor: catColor }]} />
+                          <Text style={[styles.categoryText, { color: catColor }]}>
+                            {sch.category}
+                          </Text>
+                        </View>
+
+                        <View style={[styles.statusBadge, { backgroundColor: sch.status === "Closed" ? "#F1F5F9" : "#ECFDF5", marginLeft: 8 }]}>
+                          <Text style={[styles.statusBadgeText, { color: sch.status === "Closed" ? "#64748B" : "#059669" }]}>
+                            {sch.status || "Open"}
+                          </Text>
+                        </View>
+
+                        <View style={styles.cardActionGroup}>
+                          <TouchableOpacity style={styles.iconActionBtn} onPress={() => openEditScholarshipModal(sch)}>
+                            <Ionicons name="pencil" size={16} color={Brand.primary} />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.iconActionBtn, styles.deleteBtn]}
+                            onPress={() => handleDeleteScholarship(sch.id, sch.title)}
+                          >
+                            <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+
+                      <Text style={styles.courseName}>{sch.title}</Text>
+                      <Text style={styles.uniCardLocation}>
+                        <Ionicons name="business-outline" size={12} color={Brand.textMuted} /> Provided by: {sch.provider}
+                      </Text>
+
+                      <View style={styles.courseDetailsRow}>
+                        <View style={styles.minZBadge}>
+                          <Ionicons name="cash-outline" size={12} color="#059669" />
+                          <Text style={styles.minZText}>{sch.value}</Text>
+                        </View>
+
+                        <View style={styles.durationBadge}>
+                          <Ionicons name="calendar-outline" size={12} color="#64748B" />
+                          <Text style={styles.durationText}>Deadline: {sch.deadline}</Text>
+                        </View>
+                      </View>
+
+                      <Text style={[styles.uniCardDesc, { marginTop: 4 }]} numberOfLines={2}>
+                        Eligibility: {sch.eligibility}
+                      </Text>
+                    </View>
+                  );
+                })
+              )}
+            </View>
+          )}
+
+          {/* ═══════════ TAB 4: QUESTIONS CRUD ═══════════ */}
           {activeTab === "questions" && (
             <View style={styles.tabContent}>
               <View style={styles.actionBanner}>
@@ -1067,7 +1384,7 @@ export const AdminDashboardScreen: React.FC = () => {
             </View>
           )}
 
-          {/* ═══════════ TAB 4: INQUIRIES & SUPPORT ═══════════ */}
+          {/* ═══════════ TAB 5: INQUIRIES & SUPPORT ═══════════ */}
           {activeTab === "inquiries" && (
             <View style={styles.tabContent}>
               <View style={styles.searchBox}>
@@ -1174,7 +1491,7 @@ export const AdminDashboardScreen: React.FC = () => {
             </View>
           )}
 
-          {/* ═══════════ TAB 5: STUDENTS MONITORING ═══════════ */}
+          {/* ═══════════ TAB 6: STUDENTS MONITORING ═══════════ */}
           {activeTab === "students" && (
             <View style={styles.tabContent}>
               <View style={styles.searchBox}>
@@ -1243,7 +1560,7 @@ export const AdminDashboardScreen: React.FC = () => {
             </View>
           )}
 
-          {/* ═══════════ TAB 6: OVERVIEW & ANALYTICS ═══════════ */}
+          {/* ═══════════ TAB 7: OVERVIEW & ANALYTICS ═══════════ */}
           {activeTab === "overview" && dashData && (
             <View style={styles.tabContent}>
               <View style={styles.statsGrid}>
@@ -1262,9 +1579,9 @@ export const AdminDashboardScreen: React.FC = () => {
                   <Text style={styles.statNum}>{courses.length || dashData.summary?.totalCourses || 0}</Text>
                 </View>
                 <View style={[styles.statBox, { borderLeftColor: "#F59E0B" }]}>
-                  <Text style={styles.statLabel}>Universities</Text>
+                  <Text style={styles.statLabel}>Scholarships</Text>
                   <Text style={[styles.statNum, { color: "#F59E0B" }]}>
-                    {universities.length || 17}
+                    {scholarships.length || 4}
                   </Text>
                 </View>
               </View>
@@ -1591,7 +1908,188 @@ export const AdminDashboardScreen: React.FC = () => {
         </View>
       </Modal>
 
-      {/* ═══════════ MODAL 3: CREATE / EDIT QUESTION ═══════════ */}
+      {/* ═══════════ MODAL 3: CREATE / EDIT SCHOLARSHIP ═══════════ */}
+      <Modal visible={scholarshipModalVisible} transparent animationType="slide" onRequestClose={() => setScholarshipModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: "90%" }]}>
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalCategoryText}>Scholarship Management</Text>
+                <Text style={styles.modalTitle}>
+                  {editingScholarship ? "Edit Scholarship" : "Add New Scholarship"}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setScholarshipModalVisible(false)}>
+                <Ionicons name="close" size={24} color={Brand.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.modalLabel}>Scholarship Title *</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="e.g. Mahapola Higher Education Scholarship"
+                placeholderTextColor={Brand.textMuted}
+                value={schTitle}
+                onChangeText={setSchTitle}
+              />
+
+              <Text style={styles.modalLabel}>Category *</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 6 }}>
+                {scholarshipCategoriesList.map((cat) => {
+                  const isSel = schCategory === cat;
+                  const cColor = getScholarshipCatColor(cat);
+                  return (
+                    <TouchableOpacity
+                      key={cat}
+                      style={[
+                        styles.chipItem,
+                        isSel && { backgroundColor: `${cColor}15`, borderColor: cColor },
+                      ]}
+                      onPress={() => setSchCategory(cat)}
+                    >
+                      <Text style={[styles.chipItemText, isSel && { color: cColor, fontWeight: "700" }]}>
+                        {cat}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              <Text style={styles.modalLabel}>Awarding Organization / Provider *</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="e.g. Mahapola Trust Fund / Ministry of Higher Education"
+                placeholderTextColor={Brand.textMuted}
+                value={schProvider}
+                onChangeText={setSchProvider}
+              />
+
+              <View style={{ flexDirection: "row", gap: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalLabel}>Value / Amount *</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder="e.g. Rs. 5,000 / month"
+                    placeholderTextColor={Brand.textMuted}
+                    value={schValue}
+                    onChangeText={setSchValue}
+                  />
+                </View>
+
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalLabel}>Deadline *</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder="e.g. 2026-11-30"
+                    placeholderTextColor={Brand.textMuted}
+                    value={schDeadline}
+                    onChangeText={setSchDeadline}
+                  />
+                </View>
+              </View>
+
+              <View style={{ flexDirection: "row", gap: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalLabel}>Status</Text>
+                  <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
+                    {["Open", "Closed"].map((st) => (
+                      <TouchableOpacity
+                        key={st}
+                        style={[
+                          styles.filterPill,
+                          schStatus === st && { backgroundColor: st === "Open" ? "#059669" : "#64748B", borderColor: st === "Open" ? "#059669" : "#64748B" },
+                        ]}
+                        onPress={() => setSchStatus(st)}
+                      >
+                        <Text style={[styles.filterPillText, schStatus === st && { color: "#FFFFFF" }]}>
+                          {st}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              </View>
+
+              <Text style={styles.modalLabel}>Eligibility Criteria *</Text>
+              <TextInput
+                style={[styles.modalTextInput, { minHeight: 65 }]}
+                multiline
+                placeholder="e.g. Enrolled in a Sri Lankan state university, parent income criteria..."
+                placeholderTextColor={Brand.textMuted}
+                value={schEligibility}
+                onChangeText={setSchEligibility}
+              />
+
+              <Text style={styles.modalLabel}>Benefits Summary</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="e.g. Monthly stipend, book allowance, laptop subsidy"
+                placeholderTextColor={Brand.textMuted}
+                value={schBenefits}
+                onChangeText={setSchBenefits}
+              />
+
+              <Text style={styles.modalLabel}>Requirements & Required Documents</Text>
+              <TextInput
+                style={[styles.modalTextInput, { minHeight: 65 }]}
+                multiline
+                placeholder="e.g. Certified copies of A/L results sheet, GS certificate..."
+                placeholderTextColor={Brand.textMuted}
+                value={schRequirements}
+                onChangeText={setSchRequirements}
+              />
+
+              <Text style={styles.modalLabel}>How to Apply / Instructions</Text>
+              <TextInput
+                style={[styles.modalTextInput, { minHeight: 65 }]}
+                multiline
+                placeholder="e.g. Download application form from official website, submit to welfare division..."
+                placeholderTextColor={Brand.textMuted}
+                value={schApplicationInstructions}
+                onChangeText={setSchApplicationInstructions}
+              />
+
+              <Text style={styles.modalLabel}>Official Source / Application URL</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="https://mohe.gov.lk/scholarships"
+                placeholderTextColor={Brand.textMuted}
+                autoCapitalize="none"
+                keyboardType="url"
+                value={schOfficialSourceUrl}
+                onChangeText={setSchOfficialSourceUrl}
+              />
+
+              <View style={styles.modalBtnRow}>
+                <TouchableOpacity
+                  style={styles.modalCancelBtn}
+                  onPress={() => setScholarshipModalVisible(false)}
+                  disabled={savingScholarship}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.modalSaveBtn, savingScholarship && { opacity: 0.6 }]}
+                  onPress={handleSaveScholarship}
+                  disabled={savingScholarship}
+                >
+                  {savingScholarship ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.modalSaveText}>
+                      {editingScholarship ? "Update Scholarship" : "Publish Scholarship"}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ═══════════ MODAL 4: CREATE / EDIT QUESTION ═══════════ */}
       <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -1675,7 +2173,7 @@ export const AdminDashboardScreen: React.FC = () => {
         </View>
       </Modal>
 
-      {/* ═══════════ MODAL 4: REPLY TO INQUIRY ═══════════ */}
+      {/* ═══════════ MODAL 5: REPLY TO INQUIRY ═══════════ */}
       <Modal visible={replyModalVisible} transparent animationType="slide" onRequestClose={() => setReplyModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { maxHeight: "85%" }]}>
