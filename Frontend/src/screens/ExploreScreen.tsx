@@ -94,18 +94,43 @@ export const ExploreScreen: React.FC = () => {
     );
   });
 
+  const STREAMS_CONFIG: Record<string, { color: string; icon: any; title: string }> = {
+    "Physical Science": { color: "#2563EB", icon: "calculator-outline", title: "Physical Science" },
+    "Biological Science": { color: "#059669", icon: "flask-outline", title: "Biological Science" },
+    "Commerce": { color: "#D97706", icon: "briefcase-outline", title: "Commerce" },
+    "Arts": { color: "#7C3AED", icon: "color-palette-outline", title: "Arts" },
+    "Technology": { color: "#DC2626", icon: "hardware-chip-outline", title: "Technology" },
+  };
+
+  const getStreamColor = (st: string) => {
+    if (!st) return Brand.primary;
+    if (st.includes("Physical")) return "#2563EB";
+    if (st.includes("Bio")) return "#059669";
+    if (st.includes("Commerce")) return "#D97706";
+    if (st.includes("Art")) return "#7C3AED";
+    if (st.includes("Tech")) return "#DC2626";
+    return Brand.primary;
+  };
+
   const filteredCourses = courses.filter((c) => {
-    const q = search.toLowerCase();
+    if (streamFilter !== "All" && c.stream?.toLowerCase() !== streamFilter.toLowerCase()) {
+      return false;
+    }
+    const q = search.toLowerCase().trim();
     if (!q) return true;
     return (
-      c.name.toLowerCase().includes(q) ||
-      (c.university_name || "").toLowerCase().includes(q)
+      (c.name || "").toLowerCase().includes(q) ||
+      (c.code || "").toLowerCase().includes(q) ||
+      (c.university_name || "").toLowerCase().includes(q) ||
+      (c.stream || "").toLowerCase().includes(q)
     );
   });
 
-  const getMinZLabel = (z: number) => {
-    if (!z) return "—";
-    return z.toFixed(4);
+  const getMinZLabel = (z: number | string | null | undefined) => {
+    if (z === null || z === undefined || z === "") return "—";
+    const num = typeof z === "number" ? z : parseFloat(String(z));
+    if (isNaN(num)) return "—";
+    return num.toFixed(4);
   };
 
   return (
@@ -422,81 +447,118 @@ export const ExploreScreen: React.FC = () => {
                 </Text>
               </View>
             ) : (
-              filteredCourses.map((course) => {
-                const saved = isCourseSaved(course.id);
+              (streamFilter === "All"
+                ? Object.keys(STREAMS_CONFIG).filter((st) =>
+                    filteredCourses.some((c) => c.stream?.toLowerCase() === st.toLowerCase())
+                  )
+                : [streamFilter]
+              ).map((streamKey) => {
+                const conf = STREAMS_CONFIG[streamKey] || {
+                  color: Brand.primary,
+                  icon: "book-outline",
+                  title: streamKey,
+                };
+                const streamCourses = filteredCourses.filter(
+                  (c) => c.stream?.toLowerCase() === streamKey.toLowerCase()
+                );
+                if (streamCourses.length === 0) return null;
+
                 return (
-                  <TouchableOpacity
-                    key={course.id}
-                    style={styles.courseCard}
-                    onPress={() => {
-                      setSelectedCourseId(course.id);
-                      setCurrentScreen("course-details");
-                    }}
-                    activeOpacity={0.9}
-                  >
-                    {/* Course card header */}
-                    <View style={styles.courseCardHeader}>
-                      <View style={styles.univBadge}>
-                        <Text style={styles.univBadgeText}>
-                          {course.university_short_name || "UNIV"}
-                        </Text>
+                  <View key={streamKey} style={styles.categoryBlock}>
+                    {/* Category Header */}
+                    <View style={styles.categoryHeaderRow}>
+                      <View style={[styles.categoryIconWrap, { backgroundColor: `${conf.color}15` }]}>
+                        <Ionicons name={conf.icon} size={16} color={conf.color} />
                       </View>
-                      <View style={{ flex: 1, marginLeft: 10 }}>
-                        <Text style={styles.courseUnivName}>
-                          {course.university_name}
-                        </Text>
-                        <Text style={styles.courseLocation}>
-                          {course.university_location}
-                        </Text>
-                      </View>
-                      <TouchableOpacity
-                        onPress={() => toggleSave(course.id)}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <Ionicons
-                          name={saved ? "bookmark" : "bookmark-outline"}
-                          size={20}
-                          color={saved ? Brand.primary : Brand.textMuted}
-                        />
-                      </TouchableOpacity>
-                    </View>
-
-                    <Text style={styles.courseName}>{course.name}</Text>
-                    <Text style={styles.degreeDetails}>
-                      {course.degree_type} • {course.duration_years} Years
-                    </Text>
-
-                    {/* Bottom info row */}
-                    <View style={styles.courseInfoRow}>
-                      <View style={styles.streamBadgeWrap}>
-                        <Text style={styles.streamBadge}>{course.stream}</Text>
-                      </View>
-                      <View style={styles.zScoreWrap}>
-                        <Ionicons
-                          name="stats-chart-outline"
-                          size={12}
-                          color={Brand.primary}
-                          style={{ marginRight: 3 }}
-                        />
-                        <Text style={styles.zScoreText}>
-                          Min Z: {getMinZLabel(course.min_z_score)}
+                      <Text style={styles.categoryTitleText}>{conf.title}</Text>
+                      <View style={[styles.categoryBadgeWrap, { backgroundColor: `${conf.color}15` }]}>
+                        <Text style={[styles.categoryBadgeText, { color: conf.color }]}>
+                          {streamCourses.length} {streamCourses.length === 1 ? "Program" : "Programs"}
                         </Text>
                       </View>
                     </View>
 
-                    {/* Career paths */}
-                    {course.career_paths && course.career_paths.length > 0 && (
-                      <View style={styles.careerRow}>
-                        {course.career_paths.slice(0, 3).map(
-                          (career: string, idx: number) => (
-                            <View key={idx} style={styles.careerPill}>
-                              <Text style={styles.careerPillText}>{career}</Text>
+                    {/* Courses in this Category */}
+                    {streamCourses.map((course) => {
+                      const saved = isCourseSaved(course.id);
+                      const sColor = getStreamColor(course.stream);
+                      return (
+                        <TouchableOpacity
+                          key={course.id}
+                          style={styles.courseCard}
+                          onPress={() => {
+                            setSelectedCourseId(course.id);
+                            setCurrentScreen("course-details");
+                          }}
+                          activeOpacity={0.9}
+                        >
+                          {/* Course card header */}
+                          <View style={styles.courseCardHeader}>
+                            <View style={styles.univBadge}>
+                              <Text style={styles.univBadgeText}>
+                                {course.university_short_name || "UNIV"}
+                              </Text>
                             </View>
-                          )
-                        )}
-                      </View>
-                    )}
-                  </TouchableOpacity>
+                            <View style={{ flex: 1, marginLeft: 10 }}>
+                              <Text style={styles.courseUnivName}>
+                                {course.university_name}
+                              </Text>
+                              <Text style={styles.courseLocation}>
+                                {course.university_location}
+                              </Text>
+                            </View>
+                            <TouchableOpacity
+                              onPress={() => toggleSave(course.id)}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            >
+                              <Ionicons
+                                name={saved ? "bookmark" : "bookmark-outline"}
+                                size={20}
+                                color={saved ? Brand.primary : Brand.textMuted}
+                              />
+                            </TouchableOpacity>
+                          </View>
+
+                          <Text style={styles.courseName}>{course.name}</Text>
+                          <Text style={styles.degreeDetails}>
+                            {course.degree_type} • {course.duration_years} Years
+                          </Text>
+
+                          {/* Bottom info row */}
+                          <View style={styles.courseInfoRow}>
+                            <View style={[styles.streamBadgeWrap, { backgroundColor: `${sColor}15` }]}>
+                              <View style={[styles.streamDot, { backgroundColor: sColor }]} />
+                              <Text style={[styles.streamBadge, { color: sColor }]}>{course.stream}</Text>
+                            </View>
+                            <View style={styles.zScoreWrap}>
+                              <Ionicons
+                                name="stats-chart-outline"
+                                size={12}
+                                color={Brand.primary}
+                                style={{ marginRight: 3 }}
+                              />
+                              <Text style={styles.zScoreText}>
+                                Min Z: {getMinZLabel(course.min_z_score)}
+                              </Text>
+                            </View>
+                          </View>
+
+                          {/* Career paths */}
+                          {course.career_paths && course.career_paths.length > 0 && (
+                            <View style={styles.careerRow}>
+                              {course.career_paths.slice(0, 3).map(
+                                (career: string, idx: number) => (
+                                  <View key={idx} style={styles.careerPill}>
+                                    <Text style={styles.careerPillText}>#{career}</Text>
+                                  </View>
+                                )
+                              )}
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
                 );
               })
             )}
@@ -874,6 +936,47 @@ const styles = StyleSheet.create({
   careerPillText: {
     fontSize: 11,
     color: Brand.textSecondary,
+  },
+
+  /* ── Category Section Styles ── */
+  categoryBlock: {
+    marginBottom: 20,
+  },
+  categoryHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+    marginTop: 6,
+    paddingHorizontal: 4,
+  },
+  categoryIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+  },
+  categoryTitleText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Brand.text,
+    flex: 1,
+  },
+  categoryBadgeWrap: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  categoryBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  streamDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6,
   },
 
   /* ── Empty State ── */
