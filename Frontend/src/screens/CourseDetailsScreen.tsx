@@ -177,7 +177,7 @@ export const CourseDetailsScreen: React.FC = () => {
               return (
                 <View key={index} style={styles.chartBarCol}>
                   <Text style={styles.chartBarValue}>{data.score}</Text>
-                  <View style={[styles.chartBar, { height: heightPercent + "%" }]} />
+                  <View style={[styles.chartBar, { height: `${heightPercent}%` as any }]} />
                   <Text style={styles.chartBarLabel}>{data.year}</Text>
                 </View>
               );
