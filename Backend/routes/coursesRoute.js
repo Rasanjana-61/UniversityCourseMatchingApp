@@ -6,7 +6,19 @@ const router = Router();
 // GET all courses with optional filters (stream, search)
 router.get("/", async (req, res) => {
   try {
-    const { stream, search } = req.query;
+    let { stream, search } = req.query;
+
+    if (!stream || stream === "undefined" || stream === "null" || stream === "All" || !stream.trim()) {
+      stream = null;
+    } else {
+      stream = stream.trim();
+    }
+
+    if (!search || search === "undefined" || search === "null" || !search.trim()) {
+      search = null;
+    } else {
+      search = search.trim();
+    }
 
     let courses;
 
@@ -194,18 +206,21 @@ router.get("/:id/admission", async (req, res) => {
 // POST create course
 router.post("/", async (req, res) => {
   try {
-    const {
-      universityId,
-      name,
-      code,
-      stream,
-      degreeType,
-      durationYears = 4,
-      minZScore = 0.0,
-      districtCutoffs = {},
-      description = "",
-      careerPaths = [],
-    } = req.body;
+    const universityId = req.body.universityId || req.body.university_id;
+    const name = req.body.name?.trim();
+    const code = req.body.code?.trim();
+    const stream = req.body.stream?.trim();
+    const degreeType = (req.body.degreeType || req.body.degree_type)?.trim();
+    const durationYears = parseInt(req.body.durationYears || req.body.duration_years) || 4;
+    const minZScore = req.body.minZScore !== undefined && req.body.minZScore !== ""
+      ? parseFloat(req.body.minZScore)
+      : (req.body.min_z_score !== undefined && req.body.min_z_score !== "" ? parseFloat(req.body.min_z_score) : 0.0);
+    const districtCutoffs = req.body.districtCutoffs || req.body.district_cutoffs || {};
+    const description = req.body.description?.trim() || "";
+    let careerPaths = req.body.careerPaths || req.body.career_paths || [];
+    if (typeof careerPaths === "string") {
+      careerPaths = careerPaths.split(",").map((s) => s.trim()).filter(Boolean);
+    }
 
     if (!universityId || !name || !code || !stream || !degreeType) {
       return res.status(400).json({
@@ -226,11 +241,90 @@ router.post("/", async (req, res) => {
       RETURNING *;
     `;
 
-    res.status(201).json({ success: true, data: created });
+    res.status(201).json({ success: true, message: "Course created successfully!", data: created });
   } catch (error) {
     console.error("Error creating course:", error);
     res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 });
 
+// PUT update course
+router.put("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const universityId = req.body.universityId || req.body.university_id;
+    const name = req.body.name?.trim();
+    const code = req.body.code?.trim();
+    const stream = req.body.stream?.trim();
+    const degreeType = (req.body.degreeType || req.body.degree_type)?.trim();
+    const durationYears = parseInt(req.body.durationYears || req.body.duration_years) || 4;
+    const minZScore = req.body.minZScore !== undefined && req.body.minZScore !== ""
+      ? parseFloat(req.body.minZScore)
+      : (req.body.min_z_score !== undefined && req.body.min_z_score !== "" ? parseFloat(req.body.min_z_score) : 0.0);
+    const districtCutoffs = req.body.districtCutoffs || req.body.district_cutoffs || {};
+    const description = req.body.description?.trim() || "";
+    let careerPaths = req.body.careerPaths || req.body.career_paths || [];
+    if (typeof careerPaths === "string") {
+      careerPaths = careerPaths.split(",").map((s) => s.trim()).filter(Boolean);
+    }
+
+    if (!universityId || !name || !code || !stream || !degreeType) {
+      return res.status(400).json({
+        success: false,
+        message: "universityId, name, code, stream, and degreeType are required",
+      });
+    }
+
+    const [updated] = await sql`
+      UPDATE courses
+      SET
+        university_id = ${universityId},
+        name = ${name},
+        code = ${code},
+        stream = ${stream},
+        degree_type = ${degreeType},
+        duration_years = ${durationYears},
+        min_z_score = ${minZScore},
+        district_cutoffs = ${JSON.stringify(districtCutoffs)},
+        description = ${description},
+        career_paths = ${careerPaths}
+      WHERE id = ${id}
+      RETURNING *;
+    `;
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: "Course not found" });
+    }
+
+    res.status(200).json({ success: true, message: "Course updated successfully!", data: updated });
+  } catch (error) {
+    console.error("Error updating course:", error);
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+});
+
+// DELETE course
+router.delete("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [deleted] = await sql`
+      DELETE FROM courses WHERE id = ${id} RETURNING id, name;
+    `;
+
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: "Course not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Course "${deleted.name}" deleted successfully!`,
+      data: deleted,
+    });
+  } catch (error) {
+    console.error("Error deleting course:", error);
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+});
+
 export default router;
+
