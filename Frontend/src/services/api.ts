@@ -410,6 +410,72 @@ export const api = {
     }
   },
 
+  createScholarship: async (data: {
+    title: string;
+    category: string;
+    provider: string;
+    eligibility: string;
+    value: string;
+    deadline: string;
+    status?: string;
+    description?: string;
+    benefits?: string;
+    requirements?: string;
+    applicationInstructions?: string;
+    officialSourceUrl?: string;
+  }) => {
+    try {
+      const res = await fetch(`${getApiUrl()}/scholarships`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      return await res.json();
+    } catch (error: any) {
+      return { success: false, message: "Error creating scholarship: " + error.message };
+    }
+  },
+
+  updateScholarship: async (
+    id: number | string,
+    data: {
+      title: string;
+      category: string;
+      provider: string;
+      eligibility: string;
+      value: string;
+      deadline: string;
+      status?: string;
+      description?: string;
+      benefits?: string;
+      requirements?: string;
+      applicationInstructions?: string;
+      officialSourceUrl?: string;
+    }
+  ) => {
+    try {
+      const res = await fetch(`${getApiUrl()}/scholarships/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      return await res.json();
+    } catch (error: any) {
+      return { success: false, message: "Error updating scholarship: " + error.message };
+    }
+  },
+
+  deleteScholarship: async (id: number | string) => {
+    try {
+      const res = await fetch(`${getApiUrl()}/scholarships/${id}`, {
+        method: "DELETE",
+      });
+      return await res.json();
+    } catch (error: any) {
+      return { success: false, message: "Error deleting scholarship: " + error.message };
+    }
+  },
+
   // Admin APIs
   adminRegister: async (data: { fullName: string; email: string; password: string; school?: string; subject?: string }) => {
     try {

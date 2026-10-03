@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -20,6 +21,7 @@ export const ScholarshipsScreen: React.FC = () => {
   const [scholarships, setScholarships] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [savedIds, setSavedIds] = useState<number[]>([]);
 
   useEffect(() => {
@@ -28,7 +30,6 @@ export const ScholarshipsScreen: React.FC = () => {
 
   const loadScholarships = async (query?: string) => {
     try {
-      setLoading(true);
       const res = await api.getScholarships({ search: query !== undefined ? query : search });
       if (res && res.data) {
         setScholarships(res.data);
@@ -37,8 +38,14 @@ export const ScholarshipsScreen: React.FC = () => {
       console.error("Error loading scholarships:", e);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadScholarships();
+  }, [search]);
 
   const handleSearchChange = (text: string) => {
     setSearch(text);
@@ -98,7 +105,18 @@ export const ScholarshipsScreen: React.FC = () => {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[Brand.primary]}
+            tintColor={Brand.primary}
+          />
+        }
+      >
         {/* Search Input Box */}
         <View style={styles.searchBox}>
           <Ionicons name="search-outline" size={18} color={Brand.textMuted} style={{ marginRight: 8 }} />
