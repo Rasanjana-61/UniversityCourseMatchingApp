@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -12,26 +12,36 @@ import { Brand } from "../constants/theme";
 import { useApp } from "../context/AppContext";
 import { BottomNavBar } from "../components/BottomNavBar";
 import { api } from "../services/api";
+import {
+  getAnnouncementsLastSeen,
+  countNewAnnouncements,
+} from "../services/notificationsService";
 
 export const HomeScreen: React.FC = () => {
   const { student, setCurrentScreen, setActiveTab } = useApp();
   const [notifCount, setNotifCount] = useState(0);
 
-  useEffect(() => {
-    const fetchCounts = async () => {
-      let total = 0;
-      // Global public notifications count
-      const globalRes = await api.getNotificationCount();
-      if (globalRes?.success) total += globalRes.count ?? 0;
-      // Student-specific personal unread (inquiry replies)
-      if (student.email) {
-        const personalRes = await api.getStudentUnreadCount(student.email);
-        if (personalRes?.success) total += personalRes.count ?? 0;
-      }
-      setNotifCount(total);
-    };
-    fetchCounts();
+  const fetchCounts = useCallback(async () => {
+    let total = 0;
+    // 1. Global announcements: only count ones NEWER than last_seen
+    const [globalRes, lastSeen] = await Promise.all([
+      api.getNotifications(),
+      getAnnouncementsLastSeen(),
+    ]);
+    if (globalRes?.success && Array.isArray(globalRes.data)) {
+      total += countNewAnnouncements(globalRes.data, lastSeen);
+    }
+    // 2. Personal inbox: unread inquiry replies from backend
+    if (student.email) {
+      const personalRes = await api.getStudentUnreadCount(student.email);
+      if (personalRes?.success) total += personalRes.count ?? 0;
+    }
+    setNotifCount(total);
   }, [student.email]);
+
+  useEffect(() => {
+    fetchCounts();
+  }, [fetchCounts]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
