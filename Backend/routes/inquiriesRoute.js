@@ -1,6 +1,7 @@
 import { Router } from "express";
 import jwt from "jsonwebtoken";
 import { sql } from "../config/db.js";
+import { createStudentNotification } from "./studentNotificationsRoute.js";
 
 const router = Router();
 const ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET || "admin_panel_secret_jwt_key_2026";
@@ -142,6 +143,15 @@ router.put("/:id/reply", verifyAdmin, async (req, res) => {
     if (!updated) {
       return res.status(404).json({ success: false, message: "Inquiry not found." });
     }
+
+    // ─── Auto-create a personal notification for the student ──────────────
+    await createStudentNotification({
+      studentEmail: updated.student_email,
+      title: "📩 Your inquiry has been answered!",
+      message: `Re: "${updated.subject}" — ${reply.trim().substring(0, 120)}${reply.trim().length > 120 ? "..." : ""}`,
+      type: "reply",
+      inquiryId: updated.id,
+    });
 
     res.status(200).json({
       success: true,
