@@ -17,6 +17,15 @@ import {
   countNewAnnouncements,
 } from "../services/notificationsService";
 
+// ─── Time-based greeting helper ───────────────────────────────────────────────
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 12)  return "Good morning";
+  if (hour >= 12 && hour < 17) return "Good afternoon";
+  if (hour >= 17 && hour < 21) return "Good evening";
+  return "Good night";
+}
+
 export const HomeScreen: React.FC = () => {
   const { student, setCurrentScreen, setActiveTab } = useApp();
   const [notifCount, setNotifCount] = useState(0);
@@ -49,7 +58,7 @@ export const HomeScreen: React.FC = () => {
         {/* Header Section */}
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.greeting}>Good morning, {student.fullName.split(" ")[0]}</Text>
+            <Text style={styles.greeting}>{getGreeting()}, {student.fullName.split(" ")[0]}</Text>
             <Text style={styles.subGreeting}>Your personalized career journey starts here.</Text>
           </View>
           {/* Bell icon */}
