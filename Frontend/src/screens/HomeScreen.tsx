@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -11,9 +11,46 @@ import { Ionicons } from "@expo/vector-icons";
 import { Brand } from "../constants/theme";
 import { useApp } from "../context/AppContext";
 import { BottomNavBar } from "../components/BottomNavBar";
+import { api } from "../services/api";
+import {
+  getAnnouncementsLastSeen,
+  countNewAnnouncements,
+} from "../services/notificationsService";
+
+// ─── Time-based greeting helper ───────────────────────────────────────────────
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 12)  return "Good morning";
+  if (hour >= 12 && hour < 17) return "Good afternoon";
+  if (hour >= 17 && hour < 21) return "Good evening";
+  return "Good night";
+}
 
 export const HomeScreen: React.FC = () => {
   const { student, setCurrentScreen, setActiveTab } = useApp();
+  const [notifCount, setNotifCount] = useState(0);
+
+  const fetchCounts = useCallback(async () => {
+    let total = 0;
+    // 1. Global announcements: only count ones NEWER than last_seen
+    const [globalRes, lastSeen] = await Promise.all([
+      api.getNotifications(),
+      getAnnouncementsLastSeen(),
+    ]);
+    if (globalRes?.success && Array.isArray(globalRes.data)) {
+      total += countNewAnnouncements(globalRes.data, lastSeen);
+    }
+    // 2. Personal inbox: unread inquiry replies from backend
+    if (student.email) {
+      const personalRes = await api.getStudentUnreadCount(student.email);
+      if (personalRes?.success) total += personalRes.count ?? 0;
+    }
+    setNotifCount(total);
+  }, [student.email]);
+
+  useEffect(() => {
+    fetchCounts();
+  }, [fetchCounts]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
@@ -21,9 +58,22 @@ export const HomeScreen: React.FC = () => {
         {/* Header Section */}
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.greeting}>Good morning, {student.fullName.split(" ")[0]}</Text>
+            <Text style={styles.greeting}>{getGreeting()}, {student.fullName.split(" ")[0]}</Text>
             <Text style={styles.subGreeting}>Your personalized career journey starts here.</Text>
           </View>
+          {/* Bell icon */}
+          <TouchableOpacity
+            style={styles.bellButton}
+            onPress={() => setCurrentScreen("notifications")}
+          >
+            <Ionicons name="notifications-outline" size={22} color={Brand.primary} />
+            {notifCount > 0 && (
+              <View style={styles.bellBadge}>
+                <Text style={styles.bellBadgeText}>{notifCount > 99 ? "99+" : notifCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          {/* Avatar */}
           <TouchableOpacity
             style={styles.avatarButton}
             onPress={() => {
@@ -168,6 +218,37 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1.5,
     borderColor: "#DBEAFE",
+  },
+  bellButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Brand.primaryLight,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderColor: "#DBEAFE",
+    marginRight: 8,
+    position: "relative",
+  },
+  bellBadge: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    backgroundColor: "#EF4444",
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: "#FFFFFF",
+  },
+  bellBadgeText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#FFFFFF",
   },
   cardsContainer: {
     gap: 14,
