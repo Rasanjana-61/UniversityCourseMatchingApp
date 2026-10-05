@@ -29,6 +29,7 @@ import { AdmissionRequirementsScreen } from '@/screens/AdmissionRequirementsScre
 import { AdminLoginScreen } from '@/screens/AdminLoginScreen';
 import { AdminDashboardScreen } from '@/screens/AdminDashboardScreen';
 import { StudentInquiriesScreen } from '@/screens/StudentInquiriesScreen';
+import { NotificationsScreen } from '@/screens/NotificationsScreen';
 
 export default function AppEntry() {
   const { currentScreen } = useApp();
@@ -88,6 +89,8 @@ export default function AppEntry() {
       case 'student-inquiries':
       case 'inquiries':
         return <StudentInquiriesScreen />;
+      case 'notifications':
+        return <NotificationsScreen />;
       case 'admin-login':
       case 'admin-register':
       case 'teacher-login':
