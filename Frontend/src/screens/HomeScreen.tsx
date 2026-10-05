@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -11,9 +11,27 @@ import { Ionicons } from "@expo/vector-icons";
 import { Brand } from "../constants/theme";
 import { useApp } from "../context/AppContext";
 import { BottomNavBar } from "../components/BottomNavBar";
+import { api } from "../services/api";
 
 export const HomeScreen: React.FC = () => {
   const { student, setCurrentScreen, setActiveTab } = useApp();
+  const [notifCount, setNotifCount] = useState(0);
+
+  useEffect(() => {
+    const fetchCounts = async () => {
+      let total = 0;
+      // Global public notifications count
+      const globalRes = await api.getNotificationCount();
+      if (globalRes?.success) total += globalRes.count ?? 0;
+      // Student-specific personal unread (inquiry replies)
+      if (student.email) {
+        const personalRes = await api.getStudentUnreadCount(student.email);
+        if (personalRes?.success) total += personalRes.count ?? 0;
+      }
+      setNotifCount(total);
+    };
+    fetchCounts();
+  }, [student.email]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
@@ -24,6 +42,19 @@ export const HomeScreen: React.FC = () => {
             <Text style={styles.greeting}>Good morning, {student.fullName.split(" ")[0]}</Text>
             <Text style={styles.subGreeting}>Your personalized career journey starts here.</Text>
           </View>
+          {/* Bell icon */}
+          <TouchableOpacity
+            style={styles.bellButton}
+            onPress={() => setCurrentScreen("notifications")}
+          >
+            <Ionicons name="notifications-outline" size={22} color={Brand.primary} />
+            {notifCount > 0 && (
+              <View style={styles.bellBadge}>
+                <Text style={styles.bellBadgeText}>{notifCount > 99 ? "99+" : notifCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          {/* Avatar */}
           <TouchableOpacity
             style={styles.avatarButton}
             onPress={() => {
@@ -168,6 +199,37 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1.5,
     borderColor: "#DBEAFE",
+  },
+  bellButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Brand.primaryLight,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderColor: "#DBEAFE",
+    marginRight: 8,
+    position: "relative",
+  },
+  bellBadge: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    backgroundColor: "#EF4444",
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: "#FFFFFF",
+  },
+  bellBadgeText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#FFFFFF",
   },
   cardsContainer: {
     gap: 14,
