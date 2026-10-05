@@ -53,7 +53,8 @@ export type ScreenType =
   | "admin-dashboard"
   | "admin-questions"
   | "student-inquiries"
-  | "inquiries";
+  | "inquiries"
+  | "notifications";
 
 export type TabType = "home" | "search" | "assess" | "saved" | "profile";
 
