@@ -6,6 +6,7 @@
     "dev": "nodemon index.js",
     "start": "node index.js",
     "check-db": "node check-db.js",
+    "update-university-banners": "node scripts/update-university-banners.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -15,9 +16,12 @@
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
     "@prisma/client": "^6.19.3",
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^18.0.5",
     "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "nodemailer": "^10.0.13",
     "pg": "^8.23.1"
   },
   "devDependencies": {

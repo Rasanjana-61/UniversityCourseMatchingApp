@@ -1,19 +1,20 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   TextInput,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
   Modal,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Brand } from "../constants/theme";
 import { useApp } from "../context/AppContext";
 import { BottomNavBar } from "../components/BottomNavBar";
+import { api } from "../services/api";
 
 const DISTRICTS = [
   "Colombo",
@@ -43,78 +44,156 @@ const DISTRICTS = [
   "Kegalle",
 ];
 
-const GRADES = ["A", "B", "C", "S", "F"];
+const STREAM_DEFAULT_SUBJECTS: Record<string, string[]> = {
+  "Physical Science": ["Combined Maths", "Physics", "Chemistry"],
+  "Biological Science": ["Biology", "Chemistry", "Physics"],
+  Commerce: ["Accounting", "Business Studies", "Economics"],
+  Arts: ["Political Science", "Economics", "Sinhala"],
+  Technology: ["Engineering Technology", "Science for Tech (SFT)", "ICT"],
+};
+
+const GRADES = ["A", "B", "C", "S"];
 
 export const ResultsEntryScreen: React.FC = () => {
   const { student, updateStudent, setCurrentScreen, executeMatch, isLoading } = useApp();
 
-  const [sub1, setSub1] = useState({ name: "Physics", grade: "A" });
-  const [sub2, setSub2] = useState({ name: "Chemistry", grade: "B" });
-  const [sub3, setSub3] = useState({ name: "Combined Maths", grade: "A" });
-  const [district, setDistrict] = useState(student.district || "Colombo");
-  const [zScoreStr, setZScoreStr] = useState(student.zScore ? student.zScore.toString() : "1.8245");
+  const currentStream = student.stream || "Physical Science";
+  const defaultSubs = STREAM_DEFAULT_SUBJECTS[currentStream] || [
+    "Subject 1",
+    "Subject 2",
+    "Subject 3",
+  ];
 
+  const [sub1, setSub1] = useState({
+    name: student.subjects?.[0]?.name || defaultSubs[0],
+    grade: student.subjects?.[0]?.grade || "A",
+  });
+  const [sub2, setSub2] = useState({
+    name: student.subjects?.[1]?.name || defaultSubs[1],
+    grade: student.subjects?.[1]?.grade || "B",
+  });
+  const [sub3, setSub3] = useState({
+    name: student.subjects?.[2]?.name || defaultSubs[2],
+    grade: student.subjects?.[2]?.grade || "A",
+  });
+
+  const [district, setDistrict] = useState(student.district || "Colombo");
+  const [zScoreStr, setZScoreStr] = useState(
+    student.zScore && student.zScore > 0 ? student.zScore.toFixed(4) : "1.8245"
+  );
   const [showDistrictModal, setShowDistrictModal] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
+
+  // Update subjects if stream changes
+  useEffect(() => {
+    const subs = STREAM_DEFAULT_SUBJECTS[currentStream] || [
+      "Subject 1",
+      "Subject 2",
+      "Subject 3",
+    ];
+    setSub1((prev) => ({ ...prev, name: subs[0] }));
+    setSub2((prev) => ({ ...prev, name: subs[1] }));
+    setSub3((prev) => ({ ...prev, name: subs[2] }));
+  }, [currentStream]);
 
   const handleFindEligibleCourses = async () => {
     const numZ = parseFloat(zScoreStr) || 1.8245;
+    const subjectsArray = [sub1, sub2, sub3];
 
+    // 1. Update context
     updateStudent({
+      stream: currentStream,
       district,
       zScore: numZ,
-      subjects: [sub1, sub2, sub3],
+      subjects: subjectsArray,
     });
 
-    await executeMatch(student.stream, numZ, district);
+    // 2. Persist to Backend DB
+    try {
+      setSaveStatus("Saving...");
+      await api.saveProfile({
+        fullName: student.fullName,
+        email: student.email,
+        stream: currentStream,
+        zScore: numZ,
+        district,
+        school: student.school,
+        subjects: subjectsArray,
+      });
+    } catch (e) {
+      console.log("Could not sync profile to DB:", e);
+    }
+
+    // 3. Execute Matching Engine
+    await executeMatch(currentStream, numZ, district);
     setCurrentScreen("matching-results");
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => setCurrentScreen("stream-select")}
+            activeOpacity={0.7}
           >
-            <Ionicons name="arrow-back" size={22} color={Brand.text} />
+            <View style={styles.backCircle}>
+              <Ionicons name="arrow-back" size={18} color={Brand.primary} />
+            </View>
           </TouchableOpacity>
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={styles.title}>Enter your A/L results</Text>
-            <Text style={styles.subtitle}>{student.stream || "Physical Science"}</Text>
+          <View style={{ flex: 1, marginLeft: 10 }}>
+            <Text style={styles.title}>Enter Your A/L Results</Text>
+            <Text style={styles.subtitle}>Stream: {currentStream}</Text>
           </View>
         </View>
 
         {/* Progress Step Header */}
         <View style={styles.progressContainer}>
           <View style={styles.progressTextRow}>
-            <Text style={styles.stepText}>Step 3 of 5</Text>
-            <Text style={styles.stepLabel}>40% complete</Text>
+            <Text style={styles.stepText}>Step 3 of 4</Text>
+            <Text style={styles.stepLabel}>Academic Assessment</Text>
           </View>
           <View style={styles.progressBarTrack}>
-            <View style={[styles.progressBarFill, { width: "60%" }]} />
+            <View style={[styles.progressBarFill, { width: "75%" }]} />
           </View>
         </View>
 
-        {/* Form Card */}
+        {/* Results Card */}
         <View style={styles.formCard}>
-          <Text style={styles.sectionHeading}>Subject results</Text>
-          <Text style={styles.sectionSubheading}>
-            Enter your best three subjects and district rank.
-          </Text>
+          <View style={styles.sectionHeaderRow}>
+            <View>
+              <Text style={styles.sectionHeading}>Subject Grades</Text>
+              <Text style={styles.sectionSubheading}>Select the grade obtained for each subject</Text>
+            </View>
+            <View style={styles.streamBadge}>
+              <Text style={styles.streamBadgeText}>{currentStream}</Text>
+            </View>
+          </View>
 
           {/* Subject 1 */}
-          <View style={styles.subjectRow}>
-            <View style={styles.subjectInputContainer}>
-              <Text style={styles.subjectText}>{sub1.name}</Text>
+          <View style={styles.subjectItem}>
+            <View style={styles.subjectNameRow}>
+              <Ionicons name="book-outline" size={16} color={Brand.primary} style={{ marginRight: 6 }} />
+              <TextInput
+                style={styles.subjectNameInput}
+                value={sub1.name}
+                onChangeText={(text) => setSub1({ ...sub1, name: text })}
+                placeholder="Subject 1"
+              />
             </View>
             <View style={styles.gradeContainer}>
-              {GRADES.slice(0, 4).map((g) => (
+              {GRADES.map((g) => (
                 <TouchableOpacity
                   key={g}
                   style={[styles.gradePill, sub1.grade === g && styles.gradePillActive]}
                   onPress={() => setSub1({ ...sub1, grade: g })}
+                  activeOpacity={0.8}
                 >
                   <Text style={[styles.gradeText, sub1.grade === g && styles.gradeTextActive]}>
                     {g}
@@ -125,16 +204,23 @@ export const ResultsEntryScreen: React.FC = () => {
           </View>
 
           {/* Subject 2 */}
-          <View style={styles.subjectRow}>
-            <View style={styles.subjectInputContainer}>
-              <Text style={styles.subjectText}>{sub2.name}</Text>
+          <View style={styles.subjectItem}>
+            <View style={styles.subjectNameRow}>
+              <Ionicons name="book-outline" size={16} color={Brand.primary} style={{ marginRight: 6 }} />
+              <TextInput
+                style={styles.subjectNameInput}
+                value={sub2.name}
+                onChangeText={(text) => setSub2({ ...sub2, name: text })}
+                placeholder="Subject 2"
+              />
             </View>
             <View style={styles.gradeContainer}>
-              {GRADES.slice(0, 4).map((g) => (
+              {GRADES.map((g) => (
                 <TouchableOpacity
                   key={g}
                   style={[styles.gradePill, sub2.grade === g && styles.gradePillActive]}
                   onPress={() => setSub2({ ...sub2, grade: g })}
+                  activeOpacity={0.8}
                 >
                   <Text style={[styles.gradeText, sub2.grade === g && styles.gradeTextActive]}>
                     {g}
@@ -145,16 +231,23 @@ export const ResultsEntryScreen: React.FC = () => {
           </View>
 
           {/* Subject 3 */}
-          <View style={styles.subjectRow}>
-            <View style={styles.subjectInputContainer}>
-              <Text style={styles.subjectText}>{sub3.name}</Text>
+          <View style={styles.subjectItem}>
+            <View style={styles.subjectNameRow}>
+              <Ionicons name="book-outline" size={16} color={Brand.primary} style={{ marginRight: 6 }} />
+              <TextInput
+                style={styles.subjectNameInput}
+                value={sub3.name}
+                onChangeText={(text) => setSub3({ ...sub3, name: text })}
+                placeholder="Subject 3"
+              />
             </View>
             <View style={styles.gradeContainer}>
-              {GRADES.slice(0, 4).map((g) => (
+              {GRADES.map((g) => (
                 <TouchableOpacity
                   key={g}
                   style={[styles.gradePill, sub3.grade === g && styles.gradePillActive]}
                   onPress={() => setSub3({ ...sub3, grade: g })}
+                  activeOpacity={0.8}
                 >
                   <Text style={[styles.gradeText, sub3.grade === g && styles.gradeTextActive]}>
                     {g}
@@ -164,23 +257,29 @@ export const ResultsEntryScreen: React.FC = () => {
             </View>
           </View>
 
+          <View style={styles.divider} />
+
           {/* District Picker Selector */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>District</Text>
+            <Text style={styles.label}>District (for Cutoff Calculations)</Text>
             <TouchableOpacity
               style={styles.pickerSelector}
               onPress={() => setShowDistrictModal(true)}
               activeOpacity={0.8}
             >
-              <Text style={styles.pickerValue}>{district}</Text>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Ionicons name="location-outline" size={18} color={Brand.primary} style={{ marginRight: 8 }} />
+                <Text style={styles.pickerValue}>{district} District</Text>
+              </View>
               <Ionicons name="chevron-down" size={18} color={Brand.textSecondary} />
             </TouchableOpacity>
           </View>
 
           {/* Z-Score Input */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Z-Score</Text>
+            <Text style={styles.label}>Official Z-Score</Text>
             <View style={styles.zScoreWrapper}>
+              <Ionicons name="stats-chart" size={18} color={Brand.primary} style={{ marginRight: 10 }} />
               <TextInput
                 style={styles.zScoreInput}
                 keyboardType="numeric"
@@ -190,7 +289,7 @@ export const ResultsEntryScreen: React.FC = () => {
                 placeholderTextColor={Brand.textMuted}
               />
               <View style={styles.zScoreBadge}>
-                <Text style={styles.zScoreBadgeText}>A/L Cutoff</Text>
+                <Text style={styles.zScoreBadgeText}>UGC Cutoff Metric</Text>
               </View>
             </View>
           </View>
@@ -198,28 +297,28 @@ export const ResultsEntryScreen: React.FC = () => {
 
         {/* Find Eligible Courses Primary Button */}
         <TouchableOpacity
-          style={styles.findButton}
+          style={[styles.findButton, isLoading && styles.buttonDisabled]}
           onPress={handleFindEligibleCourses}
           disabled={isLoading}
           activeOpacity={0.85}
         >
           {isLoading ? (
-            <ActivityIndicator color="#FFFFFF" />
+            <ActivityIndicator color="#FFFFFF" size="small" />
           ) : (
             <>
               <Ionicons name="sparkles" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-              <Text style={styles.findButtonText}>Find Eligible Courses</Text>
+              <Text style={styles.findButtonText}>Match & Find Eligible Courses</Text>
             </>
           )}
         </TouchableOpacity>
 
-        {/* Back Secondary Button */}
+        {/* Change Stream Button */}
         <TouchableOpacity
           style={styles.backSecondaryButton}
           onPress={() => setCurrentScreen("stream-select")}
           activeOpacity={0.85}
         >
-          <Text style={styles.backSecondaryText}>Back</Text>
+          <Text style={styles.backSecondaryText}>Change A/L Stream</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -228,12 +327,12 @@ export const ResultsEntryScreen: React.FC = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.districtModalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select District</Text>
-              <TouchableOpacity onPress={() => setShowDistrictModal(false)}>
-                <Ionicons name="close" size={22} color={Brand.text} />
+              <Text style={styles.modalTitle}>Select Your District</Text>
+              <TouchableOpacity onPress={() => setShowDistrictModal(false)} style={{ padding: 4 }}>
+                <Ionicons name="close" size={24} color={Brand.text} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={{ maxHeight: 350 }}>
+            <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
               {DISTRICTS.map((dist) => (
                 <TouchableOpacity
                   key={dist}
@@ -245,6 +344,7 @@ export const ResultsEntryScreen: React.FC = () => {
                     setDistrict(dist);
                     setShowDistrictModal(false);
                   }}
+                  activeOpacity={0.7}
                 >
                   <Text
                     style={[
@@ -255,7 +355,7 @@ export const ResultsEntryScreen: React.FC = () => {
                     {dist}
                   </Text>
                   {dist === district && (
-                    <Ionicons name="checkmark" size={18} color={Brand.primary} />
+                    <Ionicons name="checkmark-circle" size={20} color={Brand.primary} />
                   )}
                 </TouchableOpacity>
               ))}
@@ -276,34 +376,44 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingTop: 12,
+    paddingBottom: 28,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 16,
   },
   backButton: {
-    padding: 6,
+    padding: 2,
+  },
+  backCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: Brand.cardBorder,
+    justifyContent: "center",
+    alignItems: "center",
   },
   title: {
     fontSize: 20,
     fontWeight: "700",
     color: Brand.text,
-    marginBottom: 3,
+    marginBottom: 2,
   },
   subtitle: {
     fontSize: 13,
     color: Brand.textSecondary,
   },
   progressContainer: {
-    marginBottom: 20,
+    marginBottom: 18,
   },
   progressTextRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 8,
+    marginBottom: 6,
   },
   stepText: {
     fontSize: 12,
@@ -327,77 +437,102 @@ const styles = StyleSheet.create({
   },
   formCard: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 18,
     borderWidth: 1,
     borderColor: Brand.cardBorder,
-    marginBottom: 20,
+    marginBottom: 18,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 16,
   },
   sectionHeading: {
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
     color: Brand.text,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   sectionSubheading: {
     fontSize: 12,
     color: Brand.textSecondary,
-    marginBottom: 18,
   },
-  subjectRow: {
+  streamBadge: {
+    backgroundColor: Brand.primaryLight,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  streamBadgeText: {
+    fontSize: 11,
+    color: Brand.primaryDark,
+    fontWeight: "600",
+  },
+  subjectItem: {
+    marginBottom: 14,
+  },
+  subjectNameRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 14,
-    gap: 10,
+    marginBottom: 8,
   },
-  subjectInputContainer: {
+  subjectNameInput: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
-    borderWidth: 1,
-    borderColor: Brand.cardBorder,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    height: 42,
-    justifyContent: "center",
-  },
-  subjectText: {
-    fontSize: 13,
-    fontWeight: "500",
+    fontSize: 14,
+    fontWeight: "600",
     color: Brand.text,
+    paddingVertical: 2,
   },
   gradeContainer: {
     flexDirection: "row",
-    gap: 4,
+    justifyContent: "space-between",
+    gap: 6,
   },
   gradePill: {
-    width: 32,
-    height: 38,
-    borderRadius: 8,
-    borderWidth: 1,
+    flex: 1,
+    height: 40,
+    borderRadius: 10,
+    borderWidth: 1.5,
     borderColor: Brand.cardBorder,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#F8FAFC",
   },
   gradePillActive: {
     backgroundColor: Brand.primary,
     borderColor: Brand.primary,
+    shadowColor: Brand.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
   },
   gradeText: {
-    fontSize: 13,
-    fontWeight: "600",
+    fontSize: 14,
+    fontWeight: "700",
     color: Brand.textSecondary,
   },
   gradeTextActive: {
     color: "#FFFFFF",
   },
+  divider: {
+    height: 1,
+    backgroundColor: "#F1F5F9",
+    marginVertical: 14,
+  },
   inputGroup: {
-    marginTop: 10,
-    marginBottom: 10,
+    marginBottom: 12,
   },
   label: {
     fontSize: 13,
-    fontWeight: "500",
+    fontWeight: "600",
     color: Brand.textSecondary,
     marginBottom: 6,
   },
@@ -408,14 +543,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#F8FAFC",
     borderWidth: 1,
     borderColor: Brand.cardBorder,
-    borderRadius: 10,
+    borderRadius: 12,
     paddingHorizontal: 14,
-    height: 46,
+    height: 48,
   },
   pickerValue: {
     fontSize: 14,
     color: Brand.text,
-    fontWeight: "500",
+    fontWeight: "600",
   },
   zScoreWrapper: {
     flexDirection: "row",
@@ -423,20 +558,20 @@ const styles = StyleSheet.create({
     backgroundColor: "#F8FAFC",
     borderWidth: 1,
     borderColor: Brand.cardBorder,
-    borderRadius: 10,
+    borderRadius: 12,
     paddingHorizontal: 14,
-    height: 46,
+    height: 48,
   },
   zScoreInput: {
     flex: 1,
-    fontSize: 15,
-    fontWeight: "600",
-    color: Brand.text,
+    fontSize: 16,
+    fontWeight: "700",
+    color: Brand.primaryDark,
   },
   zScoreBadge: {
     backgroundColor: "#EFF6FF",
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 4,
     borderRadius: 8,
   },
   zScoreBadgeText: {
@@ -447,21 +582,24 @@ const styles = StyleSheet.create({
   findButton: {
     flexDirection: "row",
     backgroundColor: Brand.primary,
-    height: 50,
-    borderRadius: 12,
+    height: 52,
+    borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
     shadowColor: Brand.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 4,
     marginBottom: 12,
   },
+  buttonDisabled: {
+    opacity: 0.7,
+  },
   findButtonText: {
     color: "#FFFFFF",
     fontSize: 15,
-    fontWeight: "600",
+    fontWeight: "700",
   },
   backSecondaryButton: {
     backgroundColor: "#FFFFFF",
@@ -480,27 +618,27 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "flex-end",
   },
   districtModalContent: {
     backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     padding: 20,
-    maxHeight: 450,
+    maxHeight: 460,
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 16,
-    paddingBottom: 10,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: "#F1F5F9",
   },
   modalTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "700",
     color: Brand.text,
   },
@@ -508,9 +646,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    marginVertical: 2,
   },
   districtItemActive: {
     backgroundColor: "#EFF6FF",
@@ -518,9 +657,10 @@ const styles = StyleSheet.create({
   districtItemText: {
     fontSize: 14,
     color: Brand.text,
+    fontWeight: "500",
   },
   districtItemTextActive: {
     color: Brand.primary,
-    fontWeight: "600",
+    fontWeight: "700",
   },
 });

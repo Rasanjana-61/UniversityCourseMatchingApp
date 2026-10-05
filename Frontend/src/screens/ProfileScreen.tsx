@@ -3,37 +3,78 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   TextInput,
   Modal,
+  Alert,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Brand } from "../constants/theme";
 import { useApp } from "../context/AppContext";
 import { BottomNavBar } from "../components/BottomNavBar";
+import { api } from "../services/api";
 
 export const ProfileScreen: React.FC = () => {
-  const { student, updateStudent, setCurrentScreen, setActiveTab } = useApp();
+  const { student, updateStudent, setCurrentScreen, setActiveTab, logout } = useApp();
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(student.fullName);
   const [school, setSchool] = useState(student.school);
   const [location, setLocation] = useState(student.location);
   const [district, setDistrict] = useState(student.district);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     updateStudent({
       fullName: name,
       school,
-      location,
+      location: district,
       district,
     });
     setIsEditing(false);
+    // Sync to backend
+    try {
+      await api.updateProfile(student.email, {
+        fullName: name,
+        school,
+        district,
+      });
+    } catch (e) {
+      console.log("Could not sync profile update to backend:", e);
+    }
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete Account",
+      "Are you sure you want to permanently delete your account? This action cannot be undone.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const res = await api.deleteAccount(student.email);
+              if (res && res.success) {
+                logout(); // Clears local session and navigates to welcome screen
+              } else {
+                Alert.alert("Error", res.message || "Failed to delete account");
+              }
+            } catch (error) {
+              Alert.alert("Error", "An unexpected error occurred.");
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Top Header */}
         <View style={styles.header}>
@@ -63,16 +104,20 @@ export const ProfileScreen: React.FC = () => {
           </View>
 
           <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Email:</Text>
+            <Text style={styles.infoValue}>{student.email}</Text>
+          </View>
+          <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Student:</Text>
             <Text style={styles.infoValue}>{student.fullName}</Text>
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>School:</Text>
-            <Text style={styles.infoValue}>{student.school}</Text>
+            <Text style={styles.infoValue}>{student.school || "Not set"}</Text>
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Location:</Text>
-            <Text style={styles.infoValue}>{student.location}</Text>
+            <Text style={styles.infoValue}>{student.location || student.district || "Colombo"}</Text>
           </View>
         </View>
 
@@ -96,13 +141,15 @@ export const ProfileScreen: React.FC = () => {
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Subjects:</Text>
             <Text style={styles.infoValue}>
-              {student.subjects.map((s) => `${s.name} (${s.grade})`).join(", ")}
+              {student.subjects && student.subjects.length > 0
+                ? student.subjects.map((s) => `${s.name} (${s.grade})`).join(", ")
+                : "No subjects added yet"}
             </Text>
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Z-Score:</Text>
             <Text style={[styles.infoValue, { color: Brand.primary, fontWeight: "700" }]}>
-              {student.zScore.toFixed(4)}
+              {student.zScore ? student.zScore.toFixed(4) : "0.0000"}
             </Text>
           </View>
           <View style={styles.infoRow}>
@@ -122,11 +169,19 @@ export const ProfileScreen: React.FC = () => {
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Interests:</Text>
-            <Text style={styles.infoValue}>{student.interests.join(", ")}</Text>
+            <Text style={styles.infoValue}>
+              {student.interests && student.interests.length > 0
+                ? student.interests.join(", ")
+                : "Technology, Engineering"}
+            </Text>
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Skills:</Text>
-            <Text style={styles.infoValue}>{student.skills.join(" + ")}</Text>
+            <Text style={styles.infoValue}>
+              {student.skills && student.skills.length > 0
+                ? student.skills.join(" + ")
+                : "Problem solving, Teamwork"}
+            </Text>
           </View>
         </View>
 
@@ -136,7 +191,38 @@ export const ProfileScreen: React.FC = () => {
           onPress={() => setIsEditing(true)}
           activeOpacity={0.85}
         >
+          <Ionicons name="create-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
           <Text style={styles.editButtonText}>Edit Profile</Text>
+        </TouchableOpacity>
+
+        {/* Help & Support / Messages Button */}
+        <TouchableOpacity
+          style={styles.helpButton}
+          onPress={() => setCurrentScreen("student-inquiries")}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="chatbubbles-outline" size={18} color={Brand.primary} style={{ marginRight: 6 }} />
+          <Text style={styles.helpButtonText}>Help & Support Desk (Inquiries)</Text>
+        </TouchableOpacity>
+
+        {/* Log Out Button */}
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={logout}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="log-out-outline" size={18} color={Brand.textSecondary} style={{ marginRight: 6 }} />
+          <Text style={styles.logoutButtonText}>Log Out</Text>
+        </TouchableOpacity>
+
+        {/* Delete Account Button */}
+        <TouchableOpacity
+          style={styles.deleteAccountButton}
+          onPress={handleDeleteAccount}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="trash-outline" size={18} color="#EF4444" style={{ marginRight: 6 }} />
+          <Text style={styles.deleteAccountButtonText}>Delete Account</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -295,13 +381,14 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   editButton: {
+    flexDirection: "row",
     backgroundColor: Brand.primary,
     height: 50,
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
     marginTop: 8,
-    marginBottom: 16,
+    marginBottom: 10,
     shadowColor: Brand.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
@@ -310,6 +397,54 @@ const styles = StyleSheet.create({
   },
   editButtonText: {
     color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  helpButton: {
+    flexDirection: "row",
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1.5,
+    borderColor: "#BFDBFE",
+    height: 48,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  helpButtonText: {
+    color: Brand.primary,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  logoutButton: {
+    flexDirection: "row",
+    backgroundColor: "#F1F5F9",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    height: 48,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  logoutButtonText: {
+    color: Brand.textSecondary,
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  deleteAccountButton: {
+    flexDirection: "row",
+    backgroundColor: "#FEF2F2",
+    borderWidth: 1,
+    borderColor: "#FEE2E2",
+    height: 48,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  deleteAccountButtonText: {
+    color: "#EF4444",
     fontSize: 15,
     fontWeight: "600",
   },

@@ -30,6 +30,17 @@ export const WelcomeScreen: React.FC = () => {
             <Text style={styles.primaryButtonText}>Get Started</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity
+            style={styles.adminButton}
+            onPress={() => setCurrentScreen("admin-login")}
+            activeOpacity={0.85}
+          >
+            <View style={styles.adminBtnInner}>
+              <Ionicons name="shield-checkmark" size={18} color={Brand.primary} style={{ marginRight: 6 }} />
+              <Text style={styles.adminButtonText}>Admin Portal</Text>
+            </View>
+          </TouchableOpacity>
+
           <Text style={styles.footerText}>Find the right path for your future</Text>
         </View>
       </View>
@@ -112,5 +123,26 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Brand.textMuted,
     textAlign: "center",
+  },
+  adminButton: {
+    width: "100%",
+    backgroundColor: "#F1F5F9",
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+    borderWidth: 1.5,
+    borderColor: "#CBD5E1",
+  },
+  adminBtnInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  adminButtonText: {
+    color: Brand.primary,
+    fontSize: 15,
+    fontWeight: "700",
   },
 });

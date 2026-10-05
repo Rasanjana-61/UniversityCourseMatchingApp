@@ -3,10 +3,10 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Brand } from "../constants/theme";
 import { useApp } from "../context/AppContext";
@@ -16,7 +16,7 @@ export const HomeScreen: React.FC = () => {
   const { student, setCurrentScreen, setActiveTab } = useApp();
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Header Section */}
         <View style={styles.header}>
@@ -96,22 +96,32 @@ export const HomeScreen: React.FC = () => {
           {/* Secondary Outline 1 */}
           <TouchableOpacity
             style={styles.outlineActionButton}
-            onPress={() => setCurrentScreen("stream-select")}
+            onPress={() => setCurrentScreen("assessment-intro")}
             activeOpacity={0.85}
           >
             <Text style={styles.outlineActionText}>Start assessment</Text>
           </TouchableOpacity>
 
-          {/* Secondary Outline 2 */}
+          {/* Secondary Outline 2: Compare Courses */}
           <TouchableOpacity
             style={styles.outlineActionButton}
             onPress={() => {
-              setActiveTab("search");
-              setCurrentScreen("explore");
+              setCurrentScreen("compare-courses");
             }}
             activeOpacity={0.85}
           >
             <Text style={styles.outlineActionText}>Compare courses</Text>
+          </TouchableOpacity>
+
+          {/* Secondary Outline 3: Scholarships */}
+          <TouchableOpacity
+            style={styles.outlineActionButton}
+            onPress={() => {
+              setCurrentScreen("scholarships");
+            }}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.outlineActionText}>View Scholarships</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
