@@ -661,4 +661,117 @@ export const api = {
   teacherLogin: async (creds: any) => api.adminLogin(creds),
   getTeacherDashboard: async (tok: string) => api.getAdminDashboard(tok),
   getTeacherStudents: async (tok: string, filt: any) => api.getAdminStudents(tok, filt),
+
+  // ─── Notifications ────────────────────────────────────────────────────────
+  getNotifications: async (stream?: string) => {
+    try {
+      const query = stream && stream !== "all" ? `?stream=${encodeURIComponent(stream)}` : "";
+      const res = await fetch(`${getApiUrl()}/notifications${query}`, { cache: "no-store" });
+      return await res.json();
+    } catch (e: any) {
+      return { success: false, data: [] };
+    }
+  },
+
+  getNotificationCount: async () => {
+    try {
+      const res = await fetch(`${getApiUrl()}/notifications/unread-count`, { cache: "no-store" });
+      return await res.json();
+    } catch (e: any) {
+      return { success: false, count: 0 };
+    }
+  },
+
+  createNotification: async (data: {
+    title: string;
+    message: string;
+    type?: string;
+    targetStream?: string;
+    isPinned?: boolean;
+  }) => {
+    try {
+      const res = await fetch(`${getApiUrl()}/notifications`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      return await res.json();
+    } catch (e: any) {
+      return { success: false, message: "Error creating notification." };
+    }
+  },
+
+  updateNotification: async (
+    id: number,
+    data: { title?: string; message?: string; type?: string; targetStream?: string; isPinned?: boolean }
+  ) => {
+    try {
+      const res = await fetch(`${getApiUrl()}/notifications/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      return await res.json();
+    } catch (e: any) {
+      return { success: false, message: "Error updating notification." };
+    }
+  },
+
+  deleteNotification: async (id: number) => {
+    try {
+      const res = await fetch(`${getApiUrl()}/notifications/${id}`, { method: "DELETE" });
+      return await res.json();
+    } catch (e: any) {
+      return { success: false, message: "Error deleting notification." };
+    }
+  },
+
+  // ─── Student Personal Notifications (inbox) ───────────────────────────────
+  getStudentNotifications: async (email: string) => {
+    try {
+      const res = await fetch(
+        `${getApiUrl()}/student-notifications?email=${encodeURIComponent(email)}`,
+        { cache: "no-store" }
+      );
+      return await res.json();
+    } catch (e: any) {
+      return { success: false, data: [] };
+    }
+  },
+
+  getStudentUnreadCount: async (email: string) => {
+    try {
+      const res = await fetch(
+        `${getApiUrl()}/student-notifications/unread-count?email=${encodeURIComponent(email)}`,
+        { cache: "no-store" }
+      );
+      return await res.json();
+    } catch (e: any) {
+      return { success: false, count: 0 };
+    }
+  },
+
+  markStudentNotificationRead: async (id: number) => {
+    try {
+      const res = await fetch(`${getApiUrl()}/student-notifications/${id}/read`, {
+        method: "PUT",
+      });
+      return await res.json();
+    } catch (e: any) {
+      return { success: false };
+    }
+  },
+
+  markAllStudentNotificationsRead: async (email: string) => {
+    try {
+      const res = await fetch(
+        `${getApiUrl()}/student-notifications/mark-all-read?email=${encodeURIComponent(email)}`,
+        { method: "PUT" }
+      );
+      return await res.json();
+    } catch (e: any) {
+      return { success: false };
+    }
+  },
 };
+
