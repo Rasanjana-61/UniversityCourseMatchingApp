@@ -14,6 +14,13 @@ import { Brand } from "../constants/theme";
 import { useApp } from "../context/AppContext";
 import { api } from "../services/api";
 import { BottomNavBar } from "../components/BottomNavBar";
+import {
+  getAnnouncementsLastSeen,
+  markAnnouncementsAsSeen,
+  countNewAnnouncements,
+  getReadAnnouncementIds,
+  markAnnouncementRead,
+} from "../services/notificationsService";
 
 type NotifType = "info" | "warning" | "success" | "deadline" | "scholarship";
 
@@ -86,6 +93,12 @@ export const NotificationsScreen: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState<"all" | NotifType>("all");
   const [activeTab, setActiveTab] = useState<"announcements" | "inbox">("inbox");
   const [unreadPersonal, setUnreadPersonal] = useState(0);
+  // IDs of global announcements that are "new" (created after last_seen)
+  const [newAnnouncementIds, setNewAnnouncementIds] = useState<Set<number>>(new Set());
+  // IDs that have been tapped/read this session
+  const [readIds, setReadIds] = useState<Set<number>>(new Set());
+  // Count of unseen global announcements for tab badge
+  const [newAnnouncementsCount, setNewAnnouncementsCount] = useState(0);
 
   const filters: Array<{ key: "all" | NotifType; label: string }> = [
     { key: "all", label: "All" },
@@ -99,8 +112,14 @@ export const NotificationsScreen: React.FC = () => {
     loadNotifications();
   }, []);
 
-  // Mark all personal as read when user opens Inbox tab
+  // When Announcements tab is opened → mark all as seen, reset new count
   useEffect(() => {
+    if (activeTab === "announcements") {
+      markAnnouncementsAsSeen();
+      setNewAnnouncementsCount(0);
+      setNewAnnouncementIds(new Set());
+    }
+    // When Inbox tab is opened → mark all personal as read
     if (activeTab === "inbox" && student.email && unreadPersonal > 0) {
       api.markAllStudentNotificationsRead(student.email).then(() => {
         setUnreadPersonal(0);
@@ -111,17 +130,34 @@ export const NotificationsScreen: React.FC = () => {
 
   const loadNotifications = async () => {
     try {
-      const [globalRes, personalRes] = await Promise.all([
+      const [globalRes, personalRes, lastSeen, storedReadIds] = await Promise.all([
         api.getNotifications(),
         student.email ? api.getStudentNotifications(student.email) : Promise.resolve({ success: false, data: [] }),
+        getAnnouncementsLastSeen(),
+        getReadAnnouncementIds(),
       ]);
+
       if (globalRes?.success && Array.isArray(globalRes.data)) {
         setNotifications(globalRes.data);
+        // Compute which are "new" (not yet seen)
+        const newCount = countNewAnnouncements(globalRes.data, lastSeen);
+        setNewAnnouncementsCount(newCount);
+        // Build set of new IDs for green dot display
+        const since = lastSeen ? new Date(lastSeen).getTime() : 0;
+        const ids = new Set<number>(
+          globalRes.data
+            .filter((n: Notification) => new Date(n.created_at).getTime() > since)
+            .map((n: Notification) => n.id)
+        );
+        setNewAnnouncementIds(ids);
       }
+
       if (personalRes?.success && Array.isArray(personalRes.data)) {
         setPersonalNotifs(personalRes.data);
         setUnreadPersonal(personalRes.data.filter((n: any) => !n.is_read).length);
       }
+
+      setReadIds(storedReadIds);
     } catch (e) {
       console.error("Error loading notifications:", e);
     } finally {
@@ -135,36 +171,56 @@ export const NotificationsScreen: React.FC = () => {
     loadNotifications();
   }, []);
 
-  const displayed = notifications.filter((n) => {
-    const typeMatch = activeFilter === "all" || n.type === activeFilter;
-    const streamMatch = !n.target_stream || n.target_stream === student.stream;
-    return typeMatch && streamMatch;
-  });
+  // Tap handler for individual announcement card
+  const handleAnnouncementTap = useCallback((id: number) => {
+    if (!readIds.has(id)) {
+      markAnnouncementRead(id);
+      setReadIds((prev) => new Set([...prev, id]));
+    }
+  }, [readIds]);
 
-  const pinnedItems = displayed.filter((n) => n.is_pinned);
-  const regularItems = displayed.filter((n) => !n.is_pinned);
+  const pinnedItems = notifications.filter((n) => n.is_pinned && (!n.target_stream || n.target_stream === student.stream));
+  const regularItems = notifications.filter((n) => !n.is_pinned && (!n.target_stream || n.target_stream === student.stream));
 
   const renderCard = (item: Notification) => {
     const cfg = typeConfig[item.type] || typeConfig.info;
+    const isNew = newAnnouncementIds.has(item.id) && !readIds.has(item.id);
+    const isRead = readIds.has(item.id);
+
     return (
-      <View
+      <TouchableOpacity
         key={item.id}
+        activeOpacity={0.85}
+        onPress={() => handleAnnouncementTap(item.id)}
         style={[
           styles.card,
-          { backgroundColor: cfg.bg, borderColor: cfg.border },
+          {
+            backgroundColor: isRead ? "#F8FAFC" : cfg.bg,
+            borderColor: isRead ? "#E2E8F0" : cfg.border,
+            opacity: isRead ? 0.85 : 1,
+          },
           item.is_pinned && styles.pinnedCard,
         ]}
       >
+        {/* Unread indicator dot */}
+        {isNew && (
+          <View style={styles.unreadDot} />
+        )}
         <View style={styles.cardRow}>
           <View style={[styles.iconWrap, { backgroundColor: cfg.iconColor + "20" }]}>
-            <Ionicons name={cfg.icon} size={22} color={cfg.iconColor} />
+            <Ionicons name={cfg.icon} size={22} color={isRead ? Brand.textMuted : cfg.iconColor} />
           </View>
           <View style={styles.cardBody}>
             <View style={styles.cardTopRow}>
               <View style={styles.badgeRow}>
-                <View style={[styles.typeBadge, { backgroundColor: cfg.iconColor }]}>
+                <View style={[styles.typeBadge, { backgroundColor: isRead ? "#94A3B8" : cfg.iconColor }]}>
                   <Text style={styles.typeBadgeText}>{cfg.label}</Text>
                 </View>
+                {isNew && (
+                  <View style={[styles.typeBadge, { backgroundColor: "#16A34A" }]}>
+                    <Text style={styles.typeBadgeText}>New</Text>
+                  </View>
+                )}
                 {item.is_pinned && (
                   <View style={styles.pinnedBadge}>
                     <Ionicons name="pin" size={10} color="#DC2626" />
@@ -179,11 +235,14 @@ export const NotificationsScreen: React.FC = () => {
               </View>
               <Text style={styles.timeText}>{timeAgo(item.created_at)}</Text>
             </View>
-            <Text style={styles.cardTitle}>{item.title}</Text>
+            <Text style={[styles.cardTitle, isRead && { color: Brand.textMuted }]}>{item.title}</Text>
             <Text style={styles.cardMessage}>{item.message}</Text>
+            {isNew && (
+              <Text style={styles.tapToRead}>Tap to mark as read</Text>
+            )}
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -242,9 +301,9 @@ export const NotificationsScreen: React.FC = () => {
           <Text style={[styles.tabSwitchText, activeTab === "announcements" && styles.tabSwitchTextActive]}>
             Announcements
           </Text>
-          {notifications.length > 0 && (
-            <View style={[styles.inboxBadge, { backgroundColor: "#94A3B8" }]}>
-              <Text style={styles.inboxBadgeText}>{notifications.length}</Text>
+          {newAnnouncementsCount > 0 && (
+            <View style={[styles.inboxBadge, { backgroundColor: "#EF4444" }]}>
+              <Text style={styles.inboxBadgeText}>{newAnnouncementsCount}</Text>
             </View>
           )}
         </TouchableOpacity>
@@ -439,7 +498,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     marginBottom: 12,
-    overflow: "hidden",
+    position: "relative",
   },
   pinnedCard: {
     shadowColor: "#DC2626",
@@ -544,5 +603,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: Brand.primary,
+  },
+  // Unread indicator dot on announcement cards
+  unreadDot: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: "#16A34A",
+    zIndex: 10,
+  },
+  tapToRead: {
+    fontSize: 11,
+    color: "#16A34A",
+    fontWeight: "600",
+    marginTop: 6,
   },
 });
