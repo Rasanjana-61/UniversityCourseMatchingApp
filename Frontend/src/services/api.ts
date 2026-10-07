@@ -1,20 +1,11 @@
-import { Platform } from "react-native";
+// Hosted backend URL for Vercel deployment.
+export const API_BASE_URL = "https://abc-self-psi.vercel.app/api";
+export const DEPLOYED_API_URL = API_BASE_URL;
 
-// If testing on a real device via Expo Go, ensure phone and PC are on the same Wi-Fi.
-// PC IP: 192.168.8.100
-export const API_BASE_URL = Platform.select({
-  android: "http://10.0.2.2:5000/api", // Android emulator default
-  ios: "http://localhost:5000/api",    // iOS simulator
-  web: "http://localhost:5000/api",    // Web browser
-  default: "http://192.168.8.100:5000/api", // Expo Go on physical device
-});
+export const LAN_API_URL = API_BASE_URL;
 
-// For physical phone using Expo Go on Wi-Fi:
-export const LAN_API_URL = "http://192.168.8.100:5000/api";
-
-export const getApiUrl = (useLan: boolean = true) => {
-  if (Platform.OS === "web") return "http://localhost:5000/api";
-  return useLan ? LAN_API_URL : API_BASE_URL;
+export const getApiUrl = (_useLan: boolean = true): string => {
+  return API_BASE_URL;
 };
 
 export const api = {
