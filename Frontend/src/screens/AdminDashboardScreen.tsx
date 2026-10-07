@@ -17,7 +17,7 @@ import { Brand } from "../constants/theme";
 import { useApp } from "../context/AppContext";
 import { api } from "../services/api";
 
-type AdminTab = "universities" | "courses" | "scholarships" | "questions" | "inquiries" | "students" | "overview";
+type AdminTab = "universities" | "courses" | "scholarships" | "questions" | "inquiries" | "students" | "overview" | "announcements";
 
 const sriLankanDistricts = [
   "Colombo", "Gampaha", "Kalutara", "Kandy", "Matale", "Nuwara Eliya",
@@ -142,6 +142,18 @@ export const AdminDashboardScreen: React.FC = () => {
   // --- Overview state ---
   const [dashData, setDashData] = useState<any>(null);
 
+  // --- Announcements (Notifications) state ---
+  const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [announcementsLoading, setAnnouncementsLoading] = useState(false);
+  const [announcementModalVisible, setAnnouncementModalVisible] = useState(false);
+  const [editingAnnouncement, setEditingAnnouncement] = useState<any | null>(null);
+  const [annTitle, setAnnTitle] = useState("");
+  const [annMessage, setAnnMessage] = useState("");
+  const [annType, setAnnType] = useState("info");
+  const [annTargetStream, setAnnTargetStream] = useState("");
+  const [annIsPinned, setAnnIsPinned] = useState(false);
+  const [savingAnnouncement, setSavingAnnouncement] = useState(false);
+
   const categories = ["Technology", "Business", "Creative", "Social"];
   const studentStreamFilters = ["", "Physical Science", "Biological Science", "Commerce", "Arts", "Technology"];
 
@@ -245,6 +257,18 @@ export const AdminDashboardScreen: React.FC = () => {
     }
   }, [adminToken, filterStream, searchStudent]);
 
+  const loadAnnouncements = useCallback(async () => {
+    setAnnouncementsLoading(true);
+    try {
+      const res = await api.getNotifications();
+      if (res?.success) setAnnouncements(res.data || []);
+    } catch (e) {
+      console.log("Error loading announcements:", e);
+    } finally {
+      setAnnouncementsLoading(false);
+    }
+  }, []);
+
   const loadAll = useCallback(async () => {
     setLoading(true);
     await Promise.all([
@@ -255,9 +279,10 @@ export const AdminDashboardScreen: React.FC = () => {
       loadInquiries(),
       loadOverview(),
       loadStudents(),
+      loadAnnouncements(),
     ]);
     setLoading(false);
-  }, [loadUniversities, loadCourses, loadScholarships, loadQuestions, loadInquiries, loadOverview, loadStudents]);
+  }, [loadUniversities, loadCourses, loadScholarships, loadQuestions, loadInquiries, loadOverview, loadStudents, loadAnnouncements]);
 
   useEffect(() => {
     loadAll();
@@ -269,6 +294,7 @@ export const AdminDashboardScreen: React.FC = () => {
     if (activeTab === "scholarships") loadScholarships();
     if (activeTab === "students") loadStudents();
     if (activeTab === "inquiries") loadInquiries();
+    if (activeTab === "announcements") loadAnnouncements();
   }, [activeTab, courseStreamFilter, courseSearch, scholarshipCategoryFilter, scholarshipSearch, filterStream, searchStudent, inquiryStatusFilter, inquirySearch]);
 
   const onRefresh = async () => {
@@ -831,6 +857,87 @@ export const AdminDashboardScreen: React.FC = () => {
     return "#EF4444";
   };
 
+  // --- Announcements (Notifications) CRUD Handlers ---
+  const openCreateAnnouncementModal = () => {
+    setEditingAnnouncement(null);
+    setAnnTitle("");
+    setAnnMessage("");
+    setAnnType("info");
+    setAnnTargetStream("");
+    setAnnIsPinned(false);
+    setAnnouncementModalVisible(true);
+  };
+
+  const openEditAnnouncementModal = (ann: any) => {
+    setEditingAnnouncement(ann);
+    setAnnTitle(ann.title || "");
+    setAnnMessage(ann.message || "");
+    setAnnType(ann.type || "info");
+    setAnnTargetStream(ann.target_stream || "");
+    setAnnIsPinned(ann.is_pinned || false);
+    setAnnouncementModalVisible(true);
+  };
+
+  const handleSaveAnnouncement = async () => {
+    if (!annTitle.trim() || !annMessage.trim()) {
+      Alert.alert("Missing Fields", "Title and Message are required.");
+      return;
+    }
+    setSavingAnnouncement(true);
+    try {
+      const payload = {
+        title: annTitle.trim(),
+        message: annMessage.trim(),
+        type: annType,
+        targetStream: annTargetStream || undefined,
+        isPinned: annIsPinned,
+      };
+      let res;
+      if (editingAnnouncement) {
+        res = await api.updateNotification(editingAnnouncement.id, payload);
+      } else {
+        res = await api.createNotification(payload);
+      }
+      if (res?.success) {
+        setAnnouncementModalVisible(false);
+        loadAnnouncements();
+        Alert.alert("Success", editingAnnouncement ? "Announcement updated!" : "Announcement posted!");
+      } else {
+        Alert.alert("Error", res?.message || "Failed to save announcement.");
+      }
+    } catch (e: any) {
+      Alert.alert("Error", "Something went wrong.");
+    } finally {
+      setSavingAnnouncement(false);
+    }
+  };
+
+  const handleDeleteAnnouncement = (ann: any) => {
+    Alert.alert(
+      "Delete Announcement",
+      `Delete "${ann.title}"? Students will no longer see this.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const res = await api.deleteNotification(ann.id);
+              if (res?.success) {
+                loadAnnouncements();
+              } else {
+                Alert.alert("Error", res?.message || "Failed to delete.");
+              }
+            } catch (e) {
+              Alert.alert("Error", "Something went wrong.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const pendingInquiriesCount = inquiries.filter((i) => i.status === "Pending").length;
 
   const filteredUniversities = universities.filter((u) => {
@@ -961,6 +1068,25 @@ export const AdminDashboardScreen: React.FC = () => {
             />
             <Text style={[styles.tabItemText, activeTab === "overview" && styles.tabItemTextActive]}>
               Stats
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabItem, activeTab === "announcements" && styles.tabItemActive]}
+            onPress={() => setActiveTab("announcements")}
+          >
+            <View style={{ position: "relative" }}>
+              <Ionicons
+                name="notifications-outline"
+                size={15}
+                color={activeTab === "announcements" ? "#FFFFFF" : Brand.textMuted}
+              />
+              {announcements.length > 0 && (
+                <View style={{ position: "absolute", top: -4, right: -4, backgroundColor: "#EF4444", borderRadius: 5, width: 8, height: 8 }} />
+              )}
+            </View>
+            <Text style={[styles.tabItemText, activeTab === "announcements" && styles.tabItemTextActive]}>
+              Alerts ({announcements.length})
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -1612,6 +1738,222 @@ export const AdminDashboardScreen: React.FC = () => {
           )}
         </ScrollView>
       )}
+
+      {/* ═══════════ TAB 8: ANNOUNCEMENTS / NOTIFICATIONS ═══════════ */}
+      {activeTab === "announcements" && !loading && (
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={{ paddingBottom: 40 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Brand.primary} />}
+        >
+          <View style={styles.tabContent}>
+            {/* Action Banner */}
+            <View style={styles.actionBanner}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.bannerHeading}>Announcements</Text>
+                <Text style={styles.bannerSub}>Post notifications visible to all students.</Text>
+              </View>
+              <TouchableOpacity style={styles.addBtn} onPress={openCreateAnnouncementModal}>
+                <Ionicons name="add" size={18} color="#FFFFFF" />
+                <Text style={styles.addBtnText}>Post</Text>
+              </TouchableOpacity>
+            </View>
+
+            {announcementsLoading ? (
+              <ActivityIndicator color={Brand.primary} style={{ marginTop: 40 }} />
+            ) : announcements.length === 0 ? (
+              <View style={{ alignItems: "center", marginTop: 60 }}>
+                <Ionicons name="notifications-off-outline" size={48} color={Brand.textMuted} />
+                <Text style={{ color: Brand.textMuted, marginTop: 12, fontSize: 14 }}>
+                  No announcements yet. Post one!
+                </Text>
+              </View>
+            ) : (
+              announcements.map((ann: any) => {
+                const typeColors: Record<string, { bg: string; border: string; badgeColor: string }> = {
+                  info:        { bg: "#EFF6FF", border: "#BFDBFE", badgeColor: "#2563EB" },
+                  warning:     { bg: "#FFFBEB", border: "#FDE68A", badgeColor: "#D97706" },
+                  success:     { bg: "#F0FDF4", border: "#BBF7D0", badgeColor: "#16A34A" },
+                  deadline:    { bg: "#FFF1F2", border: "#FECDD3", badgeColor: "#E11D48" },
+                  scholarship: { bg: "#FAF5FF", border: "#DDD6FE", badgeColor: "#7C3AED" },
+                };
+                const tc = typeColors[ann.type] || typeColors.info;
+                return (
+                  <View
+                    key={ann.id}
+                    style={[
+                      styles.card,
+                      { backgroundColor: tc.bg, borderColor: tc.border, borderWidth: 1, marginBottom: 12 },
+                    ]}
+                  >
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                      <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap", flex: 1 }}>
+                        <View style={{ backgroundColor: tc.badgeColor, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 }}>
+                          <Text style={{ color: "#FFFFFF", fontSize: 10, fontWeight: "700", textTransform: "uppercase" }}>
+                            {ann.type}
+                          </Text>
+                        </View>
+                        {ann.is_pinned && (
+                          <View style={{ backgroundColor: "#FEE2E2", paddingHorizontal: 6, paddingVertical: 3, borderRadius: 8, flexDirection: "row", alignItems: "center", gap: 3 }}>
+                            <Ionicons name="pin" size={10} color="#DC2626" />
+                            <Text style={{ color: "#DC2626", fontSize: 10, fontWeight: "600" }}>Pinned</Text>
+                          </View>
+                        )}
+                        {ann.target_stream ? (
+                          <View style={{ backgroundColor: "rgba(0,0,0,0.07)", paddingHorizontal: 6, paddingVertical: 3, borderRadius: 8 }}>
+                            <Text style={{ fontSize: 10, fontWeight: "500", color: "#374151" }}>{ann.target_stream}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                      <View style={{ flexDirection: "row", gap: 8 }}>
+                        <TouchableOpacity style={[styles.iconActionBtn, { backgroundColor: '#EFF6FF' }]} onPress={() => openEditAnnouncementModal(ann)}>
+                          <Ionicons name="pencil" size={14} color={Brand.primary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.iconActionBtn, styles.deleteBtn]} onPress={() => handleDeleteAnnouncement(ann)}>
+                          <Ionicons name="trash" size={14} color="#EF4444" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                    <Text style={{ fontSize: 14, fontWeight: "700", color: Brand.text, marginBottom: 4 }}>{ann.title}</Text>
+                    <Text style={{ fontSize: 13, color: Brand.textSecondary, lineHeight: 18 }}>{ann.message}</Text>
+                    <Text style={{ fontSize: 11, color: Brand.textMuted, marginTop: 8 }}>
+                      {new Date(ann.created_at).toLocaleDateString("en-LK", { day: "numeric", month: "short", year: "numeric" })}
+                    </Text>
+                  </View>
+                );
+              })
+            )}
+          </View>
+        </ScrollView>
+      )}
+
+      {/* ═══════════ ANNOUNCEMENTS MODAL ═══════════ */}
+      <Modal
+        visible={announcementModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setAnnouncementModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: "85%" }]}>
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalCategoryText}>Announcements</Text>
+                <Text style={styles.modalTitle}>
+                  {editingAnnouncement ? "Edit Announcement" : "Post Announcement"}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setAnnouncementModalVisible(false)}>
+                <Ionicons name="close" size={24} color={Brand.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.modalLabel}>Title *</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="e.g. UGC Applications Now Open"
+                placeholderTextColor={Brand.textMuted}
+                value={annTitle}
+                onChangeText={setAnnTitle}
+              />
+
+              <Text style={styles.modalLabel}>Message *</Text>
+              <TextInput
+                style={[styles.modalTextInput, { minHeight: 80 }]}
+                placeholder="Full announcement text for students..."
+                placeholderTextColor={Brand.textMuted}
+                multiline
+                value={annMessage}
+                onChangeText={setAnnMessage}
+              />
+
+              <Text style={styles.modalLabel}>Type</Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+                {(["info", "warning", "success", "deadline", "scholarship"] as const).map((t) => (
+                  <TouchableOpacity
+                    key={t}
+                    style={{
+                      paddingHorizontal: 14,
+                      paddingVertical: 7,
+                      borderRadius: 20,
+                      backgroundColor: annType === t ? Brand.primary : "#F1F5F9",
+                      borderWidth: 1,
+                      borderColor: annType === t ? Brand.primary : Brand.cardBorder,
+                    }}
+                    onPress={() => setAnnType(t)}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: "600", color: annType === t ? "#FFFFFF" : Brand.textSecondary }}>
+                      {t.charAt(0).toUpperCase() + t.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.modalLabel}>Target Stream (optional — leave blank for all)</Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+                {["", "Physical Science", "Biological Science", "Commerce", "Arts", "Technology"].map((s) => (
+                  <TouchableOpacity
+                    key={s || "all"}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      borderRadius: 16,
+                      backgroundColor: annTargetStream === s ? "#0D9488" : "#F1F5F9",
+                      borderWidth: 1,
+                      borderColor: annTargetStream === s ? "#0D9488" : Brand.cardBorder,
+                    }}
+                    onPress={() => setAnnTargetStream(s)}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: "600", color: annTargetStream === s ? "#FFFFFF" : Brand.textSecondary }}>
+                      {s || "All Students"}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <TouchableOpacity
+                style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 20 }}
+                onPress={() => setAnnIsPinned(!annIsPinned)}
+              >
+                <View style={{
+                  width: 22, height: 22, borderRadius: 6,
+                  borderWidth: 2, borderColor: annIsPinned ? Brand.primary : Brand.cardBorder,
+                  backgroundColor: annIsPinned ? Brand.primary : "transparent",
+                  justifyContent: "center", alignItems: "center",
+                }}>
+                  {annIsPinned && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+                </View>
+                <Text style={{ fontSize: 14, color: Brand.text, fontWeight: "500" }}>
+                  📌 Pin this announcement (shows at top)
+                </Text>
+              </TouchableOpacity>
+
+              <View style={styles.modalBtnRow}>
+                <TouchableOpacity
+                  style={styles.modalCancelBtn}
+                  onPress={() => setAnnouncementModalVisible(false)}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalSaveBtn, savingAnnouncement && { opacity: 0.6 }]}
+                  onPress={handleSaveAnnouncement}
+                  disabled={savingAnnouncement}
+                >
+                  {savingAnnouncement ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.modalSaveText}>
+                      {editingAnnouncement ? "Update" : "Post Announcement"}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* ═══════════ MODAL 1: CREATE / EDIT UNIVERSITY ═══════════ */}
       <Modal visible={uniModalVisible} transparent animationType="slide" onRequestClose={() => setUniModalVisible(false)}>
